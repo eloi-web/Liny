@@ -1,14 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap');
 @import "tailwindcss";
+
+@font-face {
+  font-family: 'BoxLines';
+  src: url('/fonts/BoxLines.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
   --color-oil-black: #0C0C0C;
   --color-off-white: #F0F0F0;
-  --color-neon-green: #A6ED2B;
+  --color-neon-green: #FFFFFF;
   --color-investigative-red: #ff3333;
   
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: "BoxLines", ui-monospace, SFMono-Regular, monospace;
 }
 
 body {
@@ -23,7 +31,7 @@ body {
 .scanline {
   width: 100%;
   height: 100px;
-  background: linear-gradient(0deg, rgba(2, 247, 27, 0) 0%, rgba(2, 247, 27, 0.1) 50%, rgba(2, 247, 27, 0) 100%);
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
   opacity: 0.2;
   position: absolute;
   bottom: 100%;
@@ -42,7 +50,7 @@ body {
 }
 
 .glitch-hover:hover {
-  text-shadow: 2px 0 #A6ED2B, -2px 0 #d20319;
+  text-shadow: 2px 0 #FFFFFF, -2px 0 #555555;
   animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
 }
 
@@ -56,7 +64,7 @@ body {
 }
 
 .glass-panel {
-  background: rgba(20, 20, 20, 0.7);
+  background: rgba(18, 18, 18, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(240, 240, 240, 0.15);
@@ -74,8 +82,8 @@ input[type=range]::-webkit-slider-thumb {
   width: 16px;
   background: var(--color-neon-green);
   cursor: pointer;
-  border-radius: 0;
-  box-shadow: 0 0 8px rgba(2, 247, 27, 0.5);
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
   margin-top: -7px;
 }
 
@@ -94,5 +102,6 @@ input[type=range]::-webkit-slider-runnable-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(2, 247, 27, 0.4);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
 }

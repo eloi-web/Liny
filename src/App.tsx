@@ -14,7 +14,7 @@ export default function App() {
       {/* Header */}
       <header className="fixed top-0 w-full z-50 h-16 flex justify-between items-center px-4 md:px-8 border-b border-off-white/10 glass-panel">
         <h1 className="font-mono text-xl md:text-2xl font-bold text-neon-green tracking-tighter">
-          OBJECT SCANNER
+          Liny
         </h1>
         <a 
           href="https://github.com" 
