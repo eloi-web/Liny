@@ -1,4 +1,4 @@
-# Object Scanner
+# Liny
 
 A real-time object detection progressive web app designed with a "Cyber-Detective" interface. Point your camera at anything, and watch it get sketched in real-time.
 
