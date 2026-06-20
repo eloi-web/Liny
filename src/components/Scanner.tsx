@@ -38,6 +38,10 @@ export default function Scanner() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
+  const [modelBase, setModelBase] = useState<'lite_mobilenet_v2' | 'mobilenet_v2'>('lite_mobilenet_v2');
+  const [scanInterval, setScanInterval] = useState(250); // defaults to 250ms (smooth for mobile)
+  const lastScanTime = useRef<number>(0);
+
   const [isScanning, setIsScanning] = useState(false);
   const [threshold, setThreshold] = useState(50);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -97,30 +101,34 @@ export default function Scanner() {
       canvasRef.current.height = video.videoHeight;
     }
 
-    try {
-      const predictions = await model.detect(video);
-      const filtered = predictions.filter(p => (p.score * 100) >= threshold);
-      
-      drawSketchyBoxes(canvasRef.current, filtered);
-      
-      const now = Date.now();
-      filtered.forEach(pred => {
-        speakObject(pred.class, voiceEnabled);
+    const now = Date.now();
+    // Throttled inference check: only model run if elapsed time is greater than interval
+    if (now - lastScanTime.current >= scanInterval) {
+      lastScanTime.current = now;
+      try {
+        const predictions = await model.detect(video);
+        const filtered = predictions.filter(p => (p.score * 100) >= threshold);
         
-        // Sensible debounced logging rate per matched class type
-        const lastLog = lastLogTime.current[pred.class] || 0;
-        if (now - lastLog > 3000) {
-          addLog(`DETECTED: ${pred.class.toUpperCase()}`, 'detect', Math.round(pred.score * 100));
-          lastLogTime.current[pred.class] = now;
-        }
-      });
-      
-    } catch (e) {
-      console.error("Tensorflow detection frame processing crashed: ", e);
+        drawSketchyBoxes(canvasRef.current, filtered);
+        
+        filtered.forEach(pred => {
+          speakObject(pred.class, voiceEnabled);
+          
+          // Sensible debounced logging rate per matched class type
+          const lastLog = lastLogTime.current[pred.class] || 0;
+          if (now - lastLog > 3000) {
+            addLog(`DETECTED: ${pred.class.toUpperCase()}`, 'detect', Math.round(pred.score * 100));
+            lastLogTime.current[pred.class] = now;
+          }
+        });
+        
+      } catch (e) {
+        console.error("Tensorflow detection frame processing crashed: ", e);
+      }
     }
     
     requestRef.current = requestAnimationFrame(detectFrame);
-  }, [isScanning, model, threshold, voiceEnabled, addLog]);
+  }, [isScanning, model, threshold, voiceEnabled, addLog, scanInterval]);
 
   useEffect(() => {
     if (isScanning && model) {
@@ -154,6 +162,36 @@ export default function Scanner() {
     }
   };
 
+  // Dynamic hot-swap of SSD model when changed by the user in settings
+  useEffect(() => {
+    let active = true;
+    if (isScanning) {
+      setIsLoading(true);
+      addLog(`RECONFIGURING TO ${modelBase.toUpperCase()}...`, 'init');
+      cocoSsd.load({ base: modelBase })
+        .then(newModel => {
+          if (active) {
+            setModel(newModel);
+            addLog(`SWAPPED TO ${modelBase.toUpperCase()}`, 'init');
+          }
+        })
+        .catch(err => {
+          if (active) {
+            console.error(err);
+            addLog(`SWAP FAIL: ${modelBase.toUpperCase()}`, 'error');
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setIsLoading(false);
+          }
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [modelBase]);
+
   const toggleScanner = async () => {
     if (isScanning) {
       setIsScanning(false);
@@ -173,11 +211,11 @@ export default function Scanner() {
       }
 
       if (!model) {
-        addLog('DOWNLOADING DETECTION MODEL FROM CDN...', 'init');
+        addLog(`DOWNLOADING ${modelBase.toUpperCase()} MODEL...`, 'init');
         try {
-          const loadedModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+          const loadedModel = await cocoSsd.load({ base: modelBase });
           setModel(loadedModel);
-          addLog('MODEL PIPELINE LOADED SUCCESSFULLY', 'init');
+          addLog(`${modelBase.toUpperCase()} PIPELINE LOADED`, 'init');
         } catch (e) {
           addLog('COCO-SSD RETRIEVAL TIMEOUT', 'error');
           setIsLoading(false);
@@ -262,15 +300,15 @@ export default function Scanner() {
               ref={webcamRef} 
               mirrored={facingMode === 'user'}
               videoConstraints={{ facingMode: facingMode }}
-              className="w-full h-full object-contain"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              className="w-full h-full object-cover"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             {/* Transparent high contrast overlay */}
             <div className="absolute inset-0 bg-black/10 z-20 pointer-events-none" />
             <canvas
               ref={canvasRef}
-              className="absolute inset-0 w-full h-full object-contain z-30 pointer-events-none"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              className="absolute inset-0 w-full h-full object-cover z-30 pointer-events-none"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           </div>
         </div>
@@ -344,17 +382,28 @@ export default function Scanner() {
           {/* Complete HUD Toggle */}
           <button 
             onClick={() => setHudVisible(!hudVisible)}
-            className="p-2.5 glass-panel text-white hover:text-neon-green border border-white/10 hover:border-white/30 rounded-lg duration-150 cursor-pointer"
+            className="p-2.5 glass-panel text-white hover:text-[#02F71B] border border-white/10 hover:border-white/30 rounded-lg duration-150 cursor-pointer"
             title={hudVisible ? "Hide HUD Overlays" : "Show HUD Overlays"}
           >
             {hudVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
 
+          {/* Dedicated Log Show/Hide Button */}
+          {hudVisible && (
+            <button 
+              onClick={() => setShowLogs(!showLogs)}
+              className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${showLogs ? 'text-[#02F71B] border-[#02F71B]/35 bg-[#02F71B]/5' : 'text-white border-white/10 hover:text-[#02F71B] hover:border-white/30'}`}
+              title="Toggle Diagnostic Logs"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Settings Toggle */}
           {hudVisible && (
             <button 
               onClick={() => setShowControls(!showControls)}
-              className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${showControls ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-white border-white/10 hover:text-neon-green hover:border-white/30'}`}
+              className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${showControls ? 'text-[#02F71B] border-[#02F71B]/35 bg-[#02F71B]/5' : 'text-white border-white/10 hover:text-[#02F71B] hover:border-white/30'}`}
               title="Toggle Calibration Console"
             >
               <Settings className="w-4 h-4" />
@@ -378,15 +427,15 @@ export default function Scanner() {
               CLOSE
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto font-sans text-xs text-white space-y-2 pr-1 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto font-sans text-sm text-white/90 space-y-2 pr-1 custom-scrollbar">
             {logs.map((log) => (
-              <div key={log.id} className="flex justify-between items-start text-xs md:text-sm py-1 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100">
-                <span className="text-white/50 font-mono flex-shrink-0 mr-2 text-[11px]">[{log.time}]</span>
-                <span className={`flex-1 break-words font-semibold ${log.type === 'init' ? 'text-white/40 font-mono text-[11px]' : log.type === 'error' ? 'text-red-400 font-bold' : 'text-white/95'}`}>
+              <div key={log.id} className="flex justify-between items-start text-sm md:text-base py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100">
+                <span className="text-white/40 font-mono flex-shrink-0 mr-2 text-[11px]">[{log.time}]</span>
+                <span className={`flex-1 break-words font-bold uppercase tracking-wide ${log.type === 'init' ? 'text-white/50 font-mono text-xs normal-case' : log.type === 'error' ? 'text-red-400 font-black' : 'text-white'}`}>
                   {log.text}
                 </span>
                 {log.confidence !== undefined && (
-                  <span className={log.type === 'unidentified' ? 'text-red-400 ml-2 font-mono text-[11px]' : 'text-neon-green font-mono ml-2 font-bold text-[11px]'}>
+                  <span className={log.type === 'unidentified' ? 'text-red-400 ml-2 font-mono text-xs' : 'text-[#02F71B] font-mono ml-2 font-black text-xs'}>
                     [{log.confidence}%]
                   </span>
                 )}
@@ -400,7 +449,7 @@ export default function Scanner() {
       {isScanning && hudVisible && showControls && (
         <div className="fixed right-4 md:right-8 bottom-36 md:bottom-28 max-w-sm w-[90%] md:w-80 glass-panel border border-white/20 rounded-xl p-5 z-50 shadow-[0_4px_32px_rgba(0,0,0,0.95)] flex flex-col space-y-4">
           <div className="font-mono text-xs font-bold text-white border-b border-white/10 pb-2 flex items-center justify-between tracking-widest">
-            <span className="flex items-center gap-2 text-neon-green font-bold uppercase">
+            <span className="flex items-center gap-2 text-[#02F71B] font-bold uppercase">
               <Sliders className="w-3.5 h-3.5" />
               CALIBRATION CONSOLE
             </span>
@@ -419,9 +468,9 @@ export default function Scanner() {
                 <ZoomIn className="w-3.5 h-3.5" />
                 LONG RANGE ZOOM
               </span>
-              <span className="text-neon-green font-bold">{zoom.toFixed(1)}x</span>
+              <span className="text-[#02F71B] font-bold">{zoom.toFixed(1)}x</span>
             </div>
-            <p className="text-[10px] text-white/50 leading-snug">
+            <p className="text-[10px] text-white/50 leading-snug font-sans">
               Enlarges distant/far-off targets physically to assist TensorFlow's pre-trained network.
             </p>
             <div className="flex items-center gap-3">
@@ -451,8 +500,55 @@ export default function Scanner() {
             </div>
           </div>
 
+          {/* MODEL WEIGHT PRECISION (ACCURACY SWITCH) */}
+          <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
+            <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-white">
+              <span className="opacity-80 uppercase">MODEL DEPLOYMENT</span>
+              <span className="text-[#02F71B] font-bold uppercase">{modelBase === 'lite_mobilenet_v2' ? 'Lite Speed' : 'High Accuracy'}</span>
+            </div>
+            <p className="text-[10px] text-white/50 leading-snug font-sans">
+              High Accuracy processes standard weights better for smaller / far-off targets (like TVs or bottle caps).
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setModelBase('lite_mobilenet_v2')}
+                className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'lite_mobilenet_v2' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20 hover:border-white/50'}`}
+              >
+                Lite V2 (Fast)
+              </button>
+              <button
+                onClick={() => setModelBase('mobilenet_v2')}
+                className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'mobilenet_v2' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20 hover:border-white/50'}`}
+              >
+                Standard V2 (Deep)
+              </button>
+            </div>
+          </div>
+
+          {/* SPEED THROTTLING (ELIMINATES MOBILE LAG) */}
+          <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
+            <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-white">
+              <span className="opacity-80 uppercase font-mono">SCAN TICK RATE</span>
+              <span className="text-[#02F71B] font-bold font-mono">{scanInterval}ms</span>
+            </div>
+            <p className="text-[10px] text-white/50 leading-snug font-sans w-full">
+              Slowing internal neural check interval reduces cell-phone lag and lets your UI run with zero stutter.
+            </p>
+            <div className="grid grid-cols-3 gap-1">
+              {[100, 250, 500].map((ms) => (
+                <button
+                  key={ms}
+                  onClick={() => setScanInterval(ms)}
+                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/10 hover:border-white/30'}`}
+                >
+                  {ms === 100 ? '100ms (High)' : ms === 250 ? '250ms (Mid)' : '500ms (Eco)'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* CAMERA RECON SENSITIVITY (THRESHOLD) */}
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
             <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-white">
               <span className="flex items-center gap-1.5 opacity-80 uppercase">
                 <Sliders className="w-3.5 h-3.5 opacity-80" />
@@ -488,28 +584,9 @@ export default function Scanner() {
 
           {/* TOGGLES */}
           <div className="flex items-center justify-between border-t border-white/10 pt-3">
-            {/* Log Panel Enable */}
             <div className="flex flex-col space-y-1">
               <span className="font-mono text-xs font-bold text-white opacity-80 flex items-center gap-1.5">
-                <List className="w-3.5 h-3.5" />
-                LOG PANEL
-              </span>
-              <span className="text-[10px] text-white/40">Toggle diagnostic log box</span>
-            </div>
-            <div 
-              className="relative inline-block w-10 h-5 cursor-pointer select-none"
-              onClick={() => setShowLogs(!showLogs)}
-            >
-              <div className={`absolute inset-0 border border-white/20 transition-colors duration-200 rounded-full ${showLogs ? 'bg-white' : 'bg-[#0c0c0c]'}`} />
-              <div className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full transition-transform duration-200 ${showLogs ? 'bg-black translate-x-[18px]' : 'bg-white/90'}`} />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-white/10 pt-3">
-            {/* Speak Assist Enable */}
-            <div className="flex flex-col space-y-1">
-              <span className="font-mono text-xs font-bold text-white opacity-80 flex items-center gap-1.5">
-                {voiceEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 opacity-55" />}
+                {voiceEnabled ? <Volume2 className="w-3.5 h-3.5 text-[#02F71B]" /> : <VolumeX className="w-3.5 h-3.5 opacity-55" />}
                 AUDIO ASSISTANT
               </span>
               <span className="text-[10px] text-white/40">Vocalize detected objects</span>

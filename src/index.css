@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 @import "tailwindcss";
 
 @font-face {
@@ -16,7 +16,8 @@
   --color-investigative-red: #ff3333;
   
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "BoxLines", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-boxlines: "BoxLines", sans-serif;
 }
 
 body {
