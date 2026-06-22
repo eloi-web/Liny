@@ -11,12 +11,13 @@
 
 @theme {
   --color-oil-black: #0C0C0C;
-  --color-off-white: #F0F0F0;
-  --color-neon-green: #FFFFFF;
+  --color-off-white: #E5E7EB;
+  --color-yellow-white: #FEFFA7;
+  --color-neon-green: #B6FFA1;
   --color-investigative-red: #ff3333;
   
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: "DM Sans", ui-monospace, SFMono-Regular, monospace;
   --font-boxlines: "BoxLines", sans-serif;
 }
 

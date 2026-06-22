@@ -20,32 +20,32 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
     
     // Draw the sketchy box
     rc.rectangle(x, y, width, height, {
-      stroke: '#FFFFFF',
+      stroke: '#B6FFA1',
       strokeWidth: 2,
       roughness: 1.8,
-      fill: 'rgba(240, 240, 240, 0.05)',
+      fill: 'rgba(182, 255, 161, 0.04)',
       fillStyle: 'cross-hatch',
     });
     
     // Draw label
-    const labelText = `${pred.class.toUpperCase()} [${Math.round(pred.score * 100)}%] x:${Math.round(x)} y:${Math.round(y)}`;
+    const labelText = `${pred.class.toUpperCase()} [${Math.round(pred.score * 100)}%]`;
     
-    ctx.font = '12px "BoxLines", "Space Mono", monospace';
+    ctx.font = 'bold 12px "DM Sans", sans-serif';
     const textWidth = ctx.measureText(labelText).width;
     
     // Background for text
-    ctx.fillStyle = '#121212';
+    ctx.fillStyle = '#0C0C0C';
     ctx.fillRect(x - 2, y - 24, textWidth + 12, 20); // Border effect
-    ctx.strokeStyle = '#FFFFFF';
+    ctx.strokeStyle = '#FEFFA7';
     ctx.lineWidth = 1;
     ctx.strokeRect(x - 2, y - 24, textWidth + 12, 20);
     
     // Text itself
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#FEFFA7';
     ctx.fillText(labelText, x + 4, y - 10);
     
     // Small corner accents
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#B6FFA1';
     ctx.fillRect(x - 3, y - 3, 12, 2);
     ctx.fillRect(x - 3, y - 3, 2, 12);
   });
