@@ -74,9 +74,10 @@ export default function Scanner() {
   const lastFpsTimeRef = useRef<number>(Date.now());
   const frameCountRef = useRef<number>(0);
 
-  // Web Worker performance-critical isolation states
-  const workerRef = useRef<Worker | null>(null);
-  const workerBusyRef = useRef<boolean>(false);
+  // Performance-critical Deep Neural network context states and caching
+  const localModelRef = useRef<any>(null);
+  const localModelLoadingRef = useRef<boolean>(false);
+  const inferenceBusyRef = useRef<boolean>(false);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Real-time synchronization of state pointers with active loop refs:
@@ -146,118 +147,58 @@ export default function Scanner() {
     });
   }, [isScanning, addLog]);
 
-  // Lazy initialize the Web Worker on demand with an isolated inline Blob context to guarantee sandboxed iframe compatibility
-  const initWorker = useCallback(() => {
-    if (workerRef.current) return workerRef.current;
+  // Highly robust local TensorFlow dynamic loader. Completely sandboxed iframe immune and doesn't require extra network calls
+  const loadLocalModel = useCallback(async (selectedModelBase: string) => {
+    if (localModelLoadingRef.current) return;
+    localModelLoadingRef.current = true;
+    setIsLoading(true);
+    setModelLoaded(false);
+    addLog(`INITIALIZING QUANTUM DEEP SCANNER [${selectedModelBase.toUpperCase()}]...`, 'init');
 
-    const workerCode = `
-      self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+    try {
+      addLog('PREPARING LOCAL NEURAL ENGINE...', 'init');
+      
+      // Lazy load TensorFlow dynamically to split chunk sizes and keep initial bundle tiny
+      const tf = await import('@tensorflow/tfjs');
+      addLog('NEURAL MATRIX INITIALIZED. SEARCHING DISCRETE ACCELERATORS...', 'init');
+      
       try {
-        self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tf-backend-wasm.min.js');
-      } catch (err) {
-        console.warn('WASM script download failed, resorting to CPU backend', err);
-      }
-      self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
-
-      let model = null;
-      let currentModelBase = '';
-
-      self.onmessage = async (e) => {
-        const { type, modelBase, width, height, data } = e.data;
-
-        if (type === 'load') {
-          if (model && currentModelBase === modelBase) {
-            self.postMessage({ type: 'ready', modelBase });
-            return;
-          }
-          try {
-            self.postMessage({ type: 'status', text: 'DOWNLOADING ' + modelBase.toUpperCase() + ' MODEL...' });
-            
-            // Re-initialize TF with WebAssembly or fallback CPU for sandboxed Worker context
-            if (self.tf) {
-              try {
-                if (self.tf.wasm) {
-                  self.tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/');
-                  await self.tf.setBackend('wasm');
-                  self.postMessage({ type: 'status', text: 'WASM HEAVY INFERENCE BACKEND ENGAGED' });
-                } else {
-                  await self.tf.setBackend('cpu');
-                  self.postMessage({ type: 'status', text: 'STANDARD RESPONSIVE CPU BACKEND ACTIVE' });
-                }
-              } catch (wasmErr) {
-                console.warn('WASM setBackend failed, falling back to CPU:', wasmErr);
-                await self.tf.setBackend('cpu');
-                self.postMessage({ type: 'status', text: 'HARDWARE CORRECTION: STANDARD CPU ACTIVE' });
-              }
-              await self.tf.ready();
-            }
-            
-            model = await self.cocoSsd.load({ base: modelBase });
-            currentModelBase = modelBase;
-            self.postMessage({ type: 'ready', modelBase });
-          } catch (err) {
-            self.postMessage({ type: 'error', error: err.message || String(err) });
-          }
+        await tf.setBackend('webgl');
+        addLog('HARDWARE CO-PROCESSOR ACTIVE: [GPU ACQUISITION OK]', 'init');
+      } catch (webglErr) {
+        console.warn('WebGL hardware backend blocked, reverting to local emulator CPU:', webglErr);
+        try {
+          await tf.setBackend('cpu');
+          addLog('HARDWARE CO-PROCESSOR ACTIVE: [GRID LEVEL EMULATOR BOUND]', 'init');
+        } catch (cpuErr) {
+          console.error('CPU backend bind failed:', cpuErr);
         }
-
-        if (type === 'detect') {
-          if (!model) {
-            self.postMessage({ type: 'predictions', predictions: [] });
-            return;
-          }
-          try {
-            const clamped = new Uint8ClampedArray(data);
-            let input;
-            try {
-              input = new ImageData(clamped, width, height);
-            } catch (e) {
-              input = { data: clamped, width: width, height: height };
-            }
-            const predictions = await model.detect(input);
-            self.postMessage({ type: 'predictions', predictions });
-          } catch (err) {
-            self.postMessage({ type: 'detect-error', error: err.message || String(err) });
-          }
-        }
-      };
-    `;
-
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const blobURL = URL.createObjectURL(blob);
-    const worker = new Worker(blobURL);
-
-    worker.onmessage = (e) => {
-      const { type, text, status, modelBase, predictions, error } = e.data;
-
-      if (type === 'status') {
-        const msg = text || status;
-        if (msg) addLog(msg, 'init');
-      } else if (type === 'ready') {
-        setModelLoaded(true);
-        setIsLoading(false);
-        addLog(`${(modelBase || '').toUpperCase()} PIPELINE LOADED`, 'init');
-      } else if (type === 'error') {
-        console.error("Worker lifecycle error:", error);
-        addLog(`PIPELINE FAULT: ${error || 'UNKNOWN'}`, 'error');
-        setIsLoading(false);
-        setModelLoaded(false);
-      } else if (type === 'detect-error') {
-        console.warn("Worker frame detect error:", error);
-        workerBusyRef.current = false;
-      } else if (type === 'predictions') {
-        processPredictions(predictions || []);
-        workerBusyRef.current = false;
       }
-    };
-
-    workerRef.current = worker;
-    return worker;
-  }, [addLog, processPredictions]);
+      
+      await tf.ready();
+      
+      addLog('DOWNLOADING MODEL WEIGHTS DIRECTLY TO LOCAL APP MEMORY...', 'init');
+      const cocoSsd = await import('@tensorflow-models/coco-ssd');
+      const loadedModel = await cocoSsd.load({ base: selectedModelBase as any });
+      
+      localModelRef.current = loadedModel;
+      setModelLoaded(true);
+      setIsLoading(false);
+      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [${selectedModelBase.toUpperCase()}]`, 'init');
+    } catch (err: any) {
+      console.error('Tensorflow model load faulted:', err);
+      addLog(`NEURAL COOLDOWN INITIATED: GRID INITIALIZATION FAULT - ${err.message || String(err)}`, 'error');
+      setIsLoading(false);
+      setModelLoaded(false);
+    } finally {
+      localModelLoadingRef.current = false;
+    }
+  }, [addLog]);
 
   // Performance-optimal frame detector loop (capped & highly controlled via refs to prevent memory leakage)
-  const detectFrame = useCallback(() => {
+  const detectFrame = useCallback(async () => {
     if (!loopActive.current) return;
-    if (!webcamRef.current || !webcamRef.current.video || !workerRef.current || !canvasRef.current) {
+    if (!webcamRef.current || !webcamRef.current.video || !canvasRef.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
       return;
     }
@@ -303,8 +244,8 @@ export default function Scanner() {
       : scanIntervalRef.current;
 
     const now = Date.now();
-    // Throttled inference check: only executes next step if configured scan interval has passed and worker is free
-    if (now - lastScanTime.current >= effectiveScanInterval && !workerBusyRef.current) {
+    // Throttled inference check: only executes next step if configured scan interval has passed and thread is idle
+    if (now - lastScanTime.current >= effectiveScanInterval && !inferenceBusyRef.current && localModelRef.current) {
       lastScanTime.current = now;
       try {
         // Initialize or retrieve the off-screen 300x300 downscaling pre-processor canvas
@@ -319,28 +260,24 @@ export default function Scanner() {
         if (octx) {
           // Downsample frame directly onto a compact 300x300 canvas, cutting data sizes by 85%
           octx.drawImage(video, 0, 0, 300, 300);
-          const imgData = octx.getImageData(0, 0, 300, 300);
           
-          // Zero-copy high speed transfer of the image raw pixel buffer to isolate Worker computational loops entirely
-          const buffer = imgData.data.buffer;
-          workerBusyRef.current = true;
-          workerRef.current.postMessage({
-            type: 'detect',
-            width: 300,
-            height: 300,
-            data: buffer
-          }, [buffer]);
+          inferenceBusyRef.current = true;
+          
+          // Run prediction on the 300x300 image
+          const predictions = await localModelRef.current.detect(offscreen);
+          processPredictions(predictions || []);
         }
       } catch (e) {
-        console.error("Tensorflow pre-scaling preparation crashed: ", e);
-        workerBusyRef.current = false;
+        console.error("Tensorflow inference processing crashed: ", e);
+      } finally {
+        inferenceBusyRef.current = false;
       }
     }
     
     if (loopActive.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
     }
-  }, [adaptiveThrottleActive, addLog]);
+  }, [adaptiveThrottleActive, addLog, processPredictions]);
 
   useEffect(() => {
     if (isScanning && modelLoaded) {
@@ -385,24 +322,14 @@ export default function Scanner() {
 
   // Dynamic hot-swap of SSD model when changed by the user in settings
   useEffect(() => {
-    if (isScanning && workerRef.current) {
-      setIsLoading(true);
-      setModelLoaded(false);
-      addLog(`RECONFIGURING TO ${modelBase.toUpperCase()}...`, 'init');
-      workerRef.current.postMessage({
-        type: 'load',
-        modelBase
-      });
+    if (isScanning) {
+      loadLocalModel(modelBase);
     }
-  }, [modelBase, isScanning, addLog]);
+  }, [modelBase, isScanning, loadLocalModel]);
 
-  // Terminate Worker and clean refs when scan halts or unmounts completely
+  // Clean refs when scan halts or unmounts completely
   useEffect(() => {
     return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
@@ -427,18 +354,10 @@ export default function Scanner() {
         return;
       }
 
-      const worker = initWorker();
-      if (!modelLoaded) {
-        addLog(`DOWNLOADING ${modelBase.toUpperCase()} MODEL...`, 'init');
-        worker.postMessage({
-          type: 'load',
-          modelBase
-        });
-      } else {
-        setIsLoading(false);
-      }
       setIsScanning(true);
       addLog('REAL-TIME DIAGNOSTICS INITIATED', 'init');
+      
+      await loadLocalModel(modelBase);
     }
   };
 
