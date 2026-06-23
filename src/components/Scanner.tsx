@@ -1,7 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Webcam from 'react-webcam';
-import * as cocoSsd from '@tensorflow-models/coco-ssd';
-import '@tensorflow/tfjs';
 import { 
   Camera, 
   CameraOff, 
@@ -37,7 +35,7 @@ export default function Scanner() {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
+  const [modelLoaded, setModelLoaded] = useState(false);
   const [modelBase, setModelBase] = useState<'lite_mobilenet_v2' | 'mobilenet_v2'>('lite_mobilenet_v2');
   const [scanInterval, setScanInterval] = useState(250); // defaults to 250ms (smooth for mobile)
   
@@ -60,7 +58,6 @@ export default function Scanner() {
   const [hudVisible, setHudVisible] = useState(true);
 
   // Performance-critical state synchronization to eliminate double loops & lag on change:
-  const modelRef = useRef<cocoSsd.ObjectDetection | null>(null);
   const thresholdRef = useRef(50);
   const voiceEnabledRef = useRef(false);
   const scanIntervalRef = useRef(250);
@@ -69,8 +66,12 @@ export default function Scanner() {
   const requestRef = useRef<number | null>(null);
   const lastLogTime = useRef<Record<string, number>>({});
 
+  // Web Worker performance-critical isolation states
+  const workerRef = useRef<Worker | null>(null);
+  const workerBusyRef = useRef<boolean>(false);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   // Real-time synchronization of state pointers with active loop refs:
-  useEffect(() => { modelRef.current = model; }, [model]);
   useEffect(() => { thresholdRef.current = threshold; }, [threshold]);
   useEffect(() => { voiceEnabledRef.current = voiceEnabled; }, [voiceEnabled]);
   useEffect(() => { scanIntervalRef.current = scanInterval; }, [scanInterval]);
@@ -97,10 +98,135 @@ export default function Scanner() {
     });
   }, []);
 
+  const processPredictions = useCallback((rawPredictions: Prediction[]) => {
+    if (!canvasRef.current || !isScanning) return;
+
+    const canvas = canvasRef.current;
+    
+    // Scale 300x300 worker-processed prediction results back to match displaying overlay layout sizes
+    const scaleX = canvas.width / 300;
+    const scaleY = canvas.height / 300;
+
+    const scaled = rawPredictions.map(pred => ({
+      ...pred,
+      bbox: [
+        pred.bbox[0] * scaleX,
+        pred.bbox[1] * scaleY,
+        pred.bbox[2] * scaleX,
+        pred.bbox[3] * scaleY
+      ] as [number, number, number, number]
+    }));
+
+    const filtered = scaled.filter(p => (p.score * 100) >= thresholdRef.current);
+    
+    drawSketchyBoxes(canvas, filtered);
+    
+    const now = Date.now();
+    filtered.forEach(pred => {
+      speakObject(pred.class, voiceEnabledRef.current);
+      
+      const lastLog = lastLogTime.current[pred.class] || 0;
+      if (now - lastLog > 3000) {
+        addLog(`DETECTED: ${pred.class.toUpperCase()}`, 'detect', Math.round(pred.score * 100));
+        lastLogTime.current[pred.class] = now;
+      }
+    });
+  }, [isScanning, addLog]);
+
+  // Lazy initialize the Web Worker on demand with an isolated inline Blob context to guarantee sandboxed iframe compatibility
+  const initWorker = useCallback(() => {
+    if (workerRef.current) return workerRef.current;
+
+    const workerCode = `
+      self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+      self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+
+      let model = null;
+      let currentModelBase = '';
+
+      self.onmessage = async (e) => {
+        const { type, modelBase, width, height, data } = e.data;
+
+        if (type === 'load') {
+          if (model && currentModelBase === modelBase) {
+            self.postMessage({ type: 'ready', modelBase });
+            return;
+          }
+          try {
+            self.postMessage({ type: 'status', text: 'DOWNLOADING ' + modelBase.toUpperCase() + ' MODEL...' });
+            
+            // Re-initialize TF CPU backend explicitly for sandboxed Worker context
+            if (self.tf) {
+              await self.tf.setBackend('cpu');
+              await self.tf.ready();
+            }
+            
+            model = await self.cocoSsd.load({ base: modelBase });
+            currentModelBase = modelBase;
+            self.postMessage({ type: 'ready', modelBase });
+          } catch (err) {
+            self.postMessage({ type: 'error', error: err.message || String(err) });
+          }
+        }
+
+        if (type === 'detect') {
+          if (!model) {
+            self.postMessage({ type: 'predictions', predictions: [] });
+            return;
+          }
+          try {
+            const clamped = new Uint8ClampedArray(data);
+            let input;
+            try {
+              input = new ImageData(clamped, width, height);
+            } catch (e) {
+              input = { data: clamped, width: width, height: height };
+            }
+            const predictions = await model.detect(input);
+            self.postMessage({ type: 'predictions', predictions });
+          } catch (err) {
+            self.postMessage({ type: 'detect-error', error: err.message || String(err) });
+          }
+        }
+      };
+    `;
+
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const blobURL = URL.createObjectURL(blob);
+    const worker = new Worker(blobURL);
+
+    worker.onmessage = (e) => {
+      const { type, text, status, modelBase, predictions, error } = e.data;
+
+      if (type === 'status') {
+        const msg = text || status;
+        if (msg) addLog(msg, 'init');
+      } else if (type === 'ready') {
+        setModelLoaded(true);
+        setIsLoading(false);
+        addLog(`${(modelBase || '').toUpperCase()} PIPELINE LOADED`, 'init');
+      } else if (type === 'error') {
+        console.error("Worker lifecycle error:", error);
+        addLog(`PIPELINE FAULT: ${error || 'UNKNOWN'}`, 'error');
+        setIsLoading(false);
+        setModelLoaded(false);
+      } else if (type === 'detect-error') {
+        console.warn("Worker frame detect error:", error);
+        workerBusyRef.current = false;
+      } else if (type === 'predictions') {
+        processPredictions(predictions || []);
+        workerBusyRef.current = false;
+      }
+    };
+
+    workerRef.current = worker;
+    return worker;
+  }, [addLog, processPredictions]);
+
   // Performance-optimal frame detector loop (capped & highly controlled via refs to prevent memory leakage)
-  const detectFrame = useCallback(async () => {
+  const detectFrame = useCallback(() => {
     if (!loopActive.current) return;
-    if (!webcamRef.current || !webcamRef.current.video || !modelRef.current || !canvasRef.current) {
+    if (!webcamRef.current || !webcamRef.current.video || !workerRef.current || !canvasRef.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
       return;
     }
@@ -118,38 +244,47 @@ export default function Scanner() {
     }
 
     const now = Date.now();
-    // Throttled inference check: only executes next step if configured scan interval value has passed
-    if (now - lastScanTime.current >= scanIntervalRef.current) {
+    // Throttled inference check: only executes next step if configured scan interval has passed and worker is free
+    if (now - lastScanTime.current >= scanIntervalRef.current && !workerBusyRef.current) {
       lastScanTime.current = now;
       try {
-        const predictions = await modelRef.current.detect(video);
-        const filtered = predictions.filter(p => (p.score * 100) >= thresholdRef.current);
+        // Initialize or retrieve the off-screen 300x300 downscaling pre-processor canvas
+        if (!offscreenCanvasRef.current) {
+          offscreenCanvasRef.current = document.createElement('canvas');
+          offscreenCanvasRef.current.width = 300;
+          offscreenCanvasRef.current.height = 300;
+        }
         
-        drawSketchyBoxes(canvasRef.current, filtered);
-        
-        filtered.forEach(pred => {
-          speakObject(pred.class, voiceEnabledRef.current);
+        const offscreen = offscreenCanvasRef.current;
+        const octx = offscreen.getContext('2d');
+        if (octx) {
+          // Downsample frame directly onto a compact 300x300 canvas, cutting data sizes by 85%
+          octx.drawImage(video, 0, 0, 300, 300);
+          const imgData = octx.getImageData(0, 0, 300, 300);
           
-          // Debounced logging rate per matched class type
-          const lastLog = lastLogTime.current[pred.class] || 0;
-          if (now - lastLog > 3000) {
-            addLog(`DETECTED: ${pred.class.toUpperCase()}`, 'detect', Math.round(pred.score * 100));
-            lastLogTime.current[pred.class] = now;
-          }
-        });
-        
+          // Zero-copy high speed transfer of the image raw pixel buffer to isolate Worker computational loops entirely
+          const buffer = imgData.data.buffer;
+          workerBusyRef.current = true;
+          workerRef.current.postMessage({
+            type: 'detect',
+            width: 300,
+            height: 300,
+            data: buffer
+          }, [buffer]);
+        }
       } catch (e) {
-        console.error("Tensorflow detection frame processing crashed: ", e);
+        console.error("Tensorflow pre-scaling preparation crashed: ", e);
+        workerBusyRef.current = false;
       }
     }
     
     if (loopActive.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
     }
-  }, [addLog]);
+  }, []);
 
   useEffect(() => {
-    if (isScanning && model) {
+    if (isScanning && modelLoaded) {
       loopActive.current = true;
       requestRef.current = requestAnimationFrame(detectFrame);
     } else {
@@ -166,7 +301,7 @@ export default function Scanner() {
         requestRef.current = null;
       }
     };
-  }, [isScanning, model, detectFrame]);
+  }, [isScanning, modelLoaded, detectFrame]);
 
   // Request native permission explicitly before mounting stream to avoid silent blocks
   const requestCameraPermissionDirectly = async (): Promise<boolean> => {
@@ -191,33 +326,29 @@ export default function Scanner() {
 
   // Dynamic hot-swap of SSD model when changed by the user in settings
   useEffect(() => {
-    let active = true;
-    if (isScanning) {
+    if (isScanning && workerRef.current) {
       setIsLoading(true);
+      setModelLoaded(false);
       addLog(`RECONFIGURING TO ${modelBase.toUpperCase()}...`, 'init');
-      cocoSsd.load({ base: modelBase })
-        .then(newModel => {
-          if (active) {
-            setModel(newModel);
-            addLog(`SWAPPED TO ${modelBase.toUpperCase()}`, 'init');
-          }
-        })
-        .catch(err => {
-          if (active) {
-            console.error(err);
-            addLog(`SWAP FAIL: ${modelBase.toUpperCase()}`, 'error');
-          }
-        })
-        .finally(() => {
-          if (active) {
-            setIsLoading(false);
-          }
-        });
+      workerRef.current.postMessage({
+        type: 'load',
+        modelBase
+      });
     }
+  }, [modelBase, isScanning, addLog]);
+
+  // Terminate Worker and clean refs when scan halts or unmounts completely
+  useEffect(() => {
     return () => {
-      active = false;
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
     };
-  }, [modelBase]);
+  }, []);
 
   const toggleScanner = async () => {
     if (isScanning) {
@@ -237,20 +368,17 @@ export default function Scanner() {
         return;
       }
 
-      if (!model) {
+      const worker = initWorker();
+      if (!modelLoaded) {
         addLog(`DOWNLOADING ${modelBase.toUpperCase()} MODEL...`, 'init');
-        try {
-          const loadedModel = await cocoSsd.load({ base: modelBase });
-          setModel(loadedModel);
-          addLog(`${modelBase.toUpperCase()} PIPELINE LOADED`, 'init');
-        } catch (e) {
-          addLog('COCO-SSD RETRIEVAL TIMEOUT', 'error');
-          setIsLoading(false);
-          return;
-        }
+        worker.postMessage({
+          type: 'load',
+          modelBase
+        });
+      } else {
+        setIsLoading(false);
       }
       setIsScanning(true);
-      setIsLoading(false);
       addLog('REAL-TIME DIAGNOSTICS INITIATED', 'init');
     }
   };
