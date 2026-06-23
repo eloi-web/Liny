@@ -290,17 +290,17 @@ export default function Scanner() {
       {/* Background Layer (Camera Offline State) */}
       <div className="absolute inset-0 z-0 bg-[#0C0C0C] flex flex-col items-center justify-center p-6 text-center">
         {!isScanning && !isLoading && (
-          <div className="max-w-md p-6 border border-yellow-white/15 glass-panel rounded-xl flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-yellow-white/5 flex items-center justify-center mb-4 text-yellow-white animate-pulse">
-              <CameraOff className="w-8 h-8 opacity-60 text-yellow-white" />
+          <div className="max-w-md p-6 border border-white/10 glass-panel rounded-xl flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-off-white animate-pulse">
+              <CameraOff className="w-8 h-8 opacity-60 text-off-white" />
             </div>
-            <h2 className="font-mono text-lg font-bold tracking-widest text-yellow-white mb-2 uppercase">LENS TERMINAL</h2>
+            <h2 className="font-mono text-lg font-bold tracking-widest text-off-white mb-2 uppercase">LENS TERMINAL</h2>
             <p className="text-xs text-gray-400 font-sans mb-6 max-w-sm">
               Press "START SCANNER" to trigger local webcam diagnostics. Your video remains 100% private and processed on device.
             </p>
             <button 
               onClick={toggleScanner}
-              className="px-6 py-2.5 bg-yellow-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-yellow-white/95 transition-all border border-yellow-white shadow-[0_0_15px_rgba(254,255,167,0.35)] flex items-center justify-center gap-2 tracking-wider duration-150 cursor-pointer"
+              className="px-6 py-2.5 bg-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-white/90 transition-all border border-white shadow-[0_0_15px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 tracking-wider duration-150 cursor-pointer"
             >
               <Play className="w-4 h-4 fill-current" />
               START SCANNER
@@ -349,7 +349,7 @@ export default function Scanner() {
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-40 bg-black/90 flex flex-col items-center justify-center backdrop-blur-sm">
-          <Loader2 className="w-10 h-10 text-yellow-white animate-spin mb-4" />
+          <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
           <p className="font-mono text-gray-400 text-xs tracking-widest animate-pulse uppercase">CONFIGURING neural PIPELINE...</p>
         </div>
       )}
@@ -361,21 +361,21 @@ export default function Scanner() {
             <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-400">
               <ShieldAlert className="w-6 h-6" />
             </div>
-            <h3 className="font-mono text-sm font-bold tracking-widest text-yellow-white mb-2 uppercase font-mono">CAMERA ACCESS RESTRICTED</h3>
+            <h3 className="font-mono text-sm font-bold tracking-widest text-off-white mb-2 uppercase font-mono">CAMERA ACCESS RESTRICTED</h3>
             <p className="text-xs text-gray-300 font-sans mb-6 leading-relaxed">
               {permissionError}
             </p>
             <div className="flex gap-4">
               <button 
                 onClick={toggleScanner}
-                className="px-5 py-2 bg-yellow-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-yellow-white/90 transition-all border border-yellow-white flex items-center gap-2"
+                className="px-5 py-2 bg-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-white/90 transition-all border border-white flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
                 RETRY PERMISSION
               </button>
               <button 
                 onClick={() => setPermissionError(null)}
-                className="px-4 py-2 border border-yellow-white/20 hover:border-yellow-white/40 text-yellow-white/80 font-mono text-xs rounded-lg transition-colors"
+                className="px-4 py-2 border border-white/20 hover:border-white/40 text-gray-300 font-mono text-xs rounded-lg transition-colors"
               >
                 DISMISS
               </button>
@@ -387,18 +387,18 @@ export default function Scanner() {
       {/* Quick Status Bar Overlays (Rendered when HUD is visible) */}
       {isScanning && hudVisible && (
         <div className="fixed top-20 left-4 md:left-8 z-40 flex items-center gap-3">
-          <div className="glass-panel px-3.5 py-1.5 rounded-lg border border-yellow-white/10 flex items-center gap-2">
+          <div className="glass-panel px-3.5 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
             </span>
-            <span className="font-mono text-[10px] md:text-sm font-bold text-yellow-white tracking-widest uppercase">
+            <span className="font-mono text-[10px] md:text-sm font-bold text-off-white tracking-widest uppercase">
               SCANNING ACTIVE
             </span>
           </div>
 
           {zoom > 1.0 && (
-            <div className="glass-panel px-3.5 py-1.5 rounded-lg border border-yellow-white/10 flex items-center gap-1.5 text-neon-green">
+            <div className="glass-panel px-3.5 py-1.5 rounded-lg border border-white/10 flex items-center gap-1.5 text-neon-green">
               <ZoomIn className="w-3.5 h-3.5 animate-pulse text-neon-green" />
               <span className="font-mono text-[10px] md:text-xs font-bold tracking-widest uppercase text-neon-green">
                 ZOOM: {zoom.toFixed(1)}X
@@ -414,7 +414,7 @@ export default function Scanner() {
           {/* Complete HUD Toggle */}
           <button 
             onClick={() => setHudVisible(!hudVisible)}
-            className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${hudVisible ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-yellow-white border-yellow-white/15 hover:text-neon-green hover:border-yellow-white/30'}`}
+            className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${hudVisible ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-off-white border-white/15 hover:text-neon-green hover:border-white/30'}`}
             title={hudVisible ? "Hide Overlays" : "Show Overlays"}
           >
             {hudVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -424,7 +424,7 @@ export default function Scanner() {
           {hudVisible && (
             <button 
               onClick={() => setShowControls(!showControls)}
-              className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${showControls ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-yellow-white border-yellow-white/15 hover:text-neon-green hover:border-yellow-white/30'}`}
+              className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${showControls ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-off-white border-white/15 hover:text-neon-green hover:border-white/30'}`}
               title="Calibration Setup"
             >
               <Settings className="w-4 h-4" />
@@ -435,22 +435,22 @@ export default function Scanner() {
 
       {/* Left Aligned Collapsible Log Panel */}
       {isScanning && hudVisible && showLogs && (
-        <div className="fixed bottom-36 md:bottom-28 left-4 md:left-8 w-72 md:w-80 h-56 glass-panel z-40 p-4 overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(0,0,0,0.8)] rounded-xl border border-yellow-white/10 transition-all duration-300">
-          <div className="font-mono text-xs font-bold text-yellow-white border-b border-yellow-white/10 pb-2 mb-3 tracking-widest flex items-center justify-between">
-            <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-yellow-white">
+        <div className="fixed bottom-36 md:bottom-28 left-4 md:left-8 w-72 md:w-80 h-56 glass-panel z-40 p-4 overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(0,0,0,0.8)] rounded-xl border border-white/10 transition-all duration-300">
+          <div className="font-mono text-xs font-bold text-off-white border-b border-white/10 pb-2 mb-3 tracking-widest flex items-center justify-between">
+            <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-off-white">
               <List className="w-3.5 h-3.5 opacity-80" />
               DETECTION LOGS
             </span>
             <button 
               onClick={() => setShowLogs(false)}
-              className="text-yellow-white/40 hover:text-yellow-white font-mono text-[9px] border border-yellow-white/10 px-1.5 py-0.5 rounded cursor-pointer duration-100 uppercase"
+              className="text-gray-400 hover:text-white font-mono text-[9px] border border-white/10 px-1.5 py-0.5 rounded cursor-pointer duration-100 uppercase"
             >
               CLOSE
             </button>
           </div>
           <div className="flex-1 overflow-y-auto font-sans text-sm text-gray-200 space-y-2 pr-1 custom-scrollbar">
             {logs.map((log) => (
-              <div key={log.id} className="flex justify-between items-start text-xs md:text-sm py-1.5 border-b border-yellow-white/5 last:border-0 hover:bg-yellow-white/5 rounded px-1 transition-colors duration-100">
+              <div key={log.id} className="flex justify-between items-start text-xs md:text-sm py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100">
                 <span className="text-gray-500 font-mono flex-shrink-0 mr-2 text-[10px]">[{log.time}]</span>
                 <span className={`flex-1 break-words font-bold uppercase tracking-wide ${log.type === 'init' ? 'text-gray-400 font-mono text-xs normal-case' : log.type === 'error' ? 'text-red-400 font-bold' : 'text-gray-100'}`}>
                   {log.text}
@@ -469,25 +469,25 @@ export default function Scanner() {
       {/* Centered Scrollable Calibration Dialog (Fully responsive, centers safely, easily scrollable) */}
       {isScanning && hudVisible && showControls && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="w-full max-w-sm md:max-w-md glass-panel border border-yellow-white/20 rounded-2xl p-5 md:p-6 shadow-[0_8px_40px_rgba(0,0,0,0.95)] flex flex-col max-h-[85vh] overflow-y-auto custom-scrollbar text-off-white space-y-5" id="calibration-modal">
+          <div className="w-full max-w-sm md:max-w-md glass-panel border border-white/10 rounded-2xl p-5 md:p-6 shadow-[0_8px_40px_rgba(0,0,0,0.95)] flex flex-col max-h-[85vh] overflow-y-auto custom-scrollbar text-off-white space-y-5" id="calibration-modal">
             {/* Header */}
-            <div className="font-mono text-xs font-bold text-yellow-white border-b border-yellow-white/10 pb-3 flex items-center justify-between tracking-widest">
+            <div className="font-mono text-xs font-bold text-off-white border-b border-white/10 pb-3 flex items-center justify-between tracking-widest">
               <span className="flex items-center gap-2 text-neon-green font-bold uppercase">
                 <Sliders className="w-4 h-4 text-neon-green" />
                 CALIBRATION SETUP
               </span>
               <button 
                 onClick={() => setShowControls(false)}
-                className="text-yellow-white/40 hover:text-yellow-white duration-100 cursor-pointer p-1 hover:bg-yellow-white/5 rounded-md"
+                className="text-gray-400 hover:text-white duration-100 cursor-pointer p-1 hover:bg-white/5 rounded-md"
                 title="Close Calibration"
               >
-                <X className="w-5 h-5 text-yellow-white" />
+                <X className="w-5 h-5 text-off-white" />
               </button>
             </div>
 
             {/* NEURAL MODEL SELECTION */}
             <div className="flex flex-col space-y-2">
-              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-yellow-white">
+              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="opacity-80 uppercase font-mono">Detection Pipeline</span>
                 <span className="text-neon-green font-bold uppercase font-mono">{modelBase === 'lite_mobilenet_v2' ? 'Lite Speed' : 'High Accuracy'}</span>
               </div>
@@ -497,13 +497,13 @@ export default function Scanner() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setModelBase('lite_mobilenet_v2')}
-                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'lite_mobilenet_v2' ? 'bg-yellow-white text-black border-yellow-white shadow-[0_0_8px_rgba(254,255,167,0.25)] font-bold' : 'bg-transparent text-gray-300 border-yellow-white/25 hover:border-yellow-white/40 font-bold'}`}
+                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'lite_mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40 font-bold'}`}
                 >
                   Lite V2 (Fast)
                 </button>
                 <button
                   onClick={() => setModelBase('mobilenet_v2')}
-                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'mobilenet_v2' ? 'bg-yellow-white text-black border-yellow-white shadow-[0_0_8px_rgba(254,255,167,0.25)] font-bold' : 'bg-transparent text-gray-300 border-yellow-white/25 hover:border-yellow-white/40'}`}
+                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40'}`}
                 >
                   Standard V2 (Deep)
                 </button>
@@ -511,8 +511,8 @@ export default function Scanner() {
             </div>
 
             {/* SCAN TICK PULSE FREQUENCY */}
-            <div className="flex flex-col space-y-2 border-t border-yellow-white/10 pt-3">
-              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-yellow-white">
+            <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
+              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="opacity-80 uppercase font-mono">Neural Interval</span>
                 <span className="text-neon-green font-bold font-mono">{scanInterval}ms</span>
               </div>
@@ -524,7 +524,7 @@ export default function Scanner() {
                   <button
                     key={ms}
                     onClick={() => setScanInterval(ms)}
-                    className={`py-1.5 text-[9px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-yellow-white text-black border-yellow-white shadow-[0_0_8px_rgba(254,255,167,0.25)]' : 'bg-transparent text-gray-300 border-yellow-white/10 hover:border-yellow-white/30'}`}
+                    className={`py-1.5 text-[9px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)]' : 'bg-transparent text-gray-300 border-white/10 hover:border-white/30'}`}
                   >
                     {ms === 100 ? '100ms (High)' : ms === 250 ? '250ms (Mid)' : '500ms (Eco)'}
                   </button>
@@ -533,8 +533,8 @@ export default function Scanner() {
             </div>
 
             {/* DIGITAL TELESCOPE DEVIATION (ZOOM) */}
-            <div className="flex flex-col space-y-2 border-t border-yellow-white/10 pt-3">
-              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-yellow-white">
+            <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
+              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="flex items-center gap-1.5 opacity-80 uppercase font-mono">
                   <ZoomIn className="w-3.5 h-3.5" />
                   LONG RANGE ZOOM
@@ -548,7 +548,7 @@ export default function Scanner() {
                 <button 
                   onClick={() => setZoom(prev => Math.max(1.0, prev - 0.5))}
                   disabled={zoom <= 1.0}
-                  className="p-1 px-2.5 bg-yellow-white/5 border border-yellow-white/10 hover:border-yellow-white/30 rounded text-gray-300 hover:text-yellow-white text-xs disabled:opacity-20 cursor-pointer duration-100"
+                  className="p-1 px-2.5 bg-white/5 border border-white/10 hover:border-white/30 rounded text-gray-300 hover:text-white text-xs disabled:opacity-20 cursor-pointer duration-100"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
@@ -559,12 +559,12 @@ export default function Scanner() {
                   step="0.1"
                   value={zoom} 
                   onChange={(e) => setZoom(Number(e.target.value))}
-                  className="flex-1 h-3 cursor-pointer bg-yellow-white/10 accent-yellow-white"
+                  className="flex-1 h-3 cursor-pointer bg-white/10 accent-neon-green"
                 />
                 <button 
                   onClick={() => setZoom(prev => Math.min(4.0, prev + 0.5))}
                   disabled={zoom >= 4.0}
-                  className="p-1 px-2.5 bg-yellow-white/5 border border-yellow-white/10 hover:border-yellow-white/30 rounded text-gray-300 hover:text-yellow-white text-xs disabled:opacity-20 cursor-pointer duration-100"
+                  className="p-1 px-2.5 bg-white/5 border border-white/10 hover:border-white/30 rounded text-gray-300 hover:text-white text-xs disabled:opacity-20 cursor-pointer duration-100"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
@@ -572,8 +572,8 @@ export default function Scanner() {
             </div>
 
             {/* MATCH RECON SENSITIVITY (THRESHOLD) */}
-            <div className="flex flex-col space-y-2 border-t border-yellow-white/10 pt-3">
-              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-yellow-white">
+            <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
+              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="flex items-center gap-1.5 opacity-80 uppercase font-mono">
                   <Sliders className="w-3.5 h-3.5 opacity-80" />
                   MATCH THRESHOLD
@@ -589,20 +589,20 @@ export default function Scanner() {
                 max="95" 
                 value={threshold} 
                 onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-full h-3 cursor-pointer bg-yellow-white/10 accent-yellow-white"
+                className="w-full h-3 cursor-pointer bg-white/10 accent-neon-green"
               />
             </div>
 
             {/* DUAL CAMERA SECTOR FLIPPER */}
             {(hasMultipleCameras || (typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))) && (
-              <div className="flex items-center justify-between py-2 border-t border-yellow-white/10 pt-2 font-mono text-xs">
-                <span className="font-bold text-yellow-white opacity-80 flex items-center gap-2">
+              <div className="flex items-center justify-between py-2 border-t border-white/10 pt-2 font-mono text-xs">
+                <span className="font-bold text-off-white opacity-80 flex items-center gap-2">
                   <RefreshCw className="w-3.5 h-3.5" />
                   OPTICAL SOURCE
                 </span>
                 <button 
                   onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
-                  className="px-3 py-1.5 glass-panel text-yellow-white hover:text-white border border-yellow-white/20 hover:border-yellow-white/40 text-[10px] font-bold rounded duration-150 uppercase cursor-pointer tracking-wider"
+                  className="px-3 py-1.5 glass-panel text-off-white hover:text-white border border-white/20 hover:border-white/40 text-[10px] font-bold rounded duration-150 uppercase cursor-pointer tracking-wider"
                 >
                   {facingMode === 'user' ? 'FRONT CAMERA' : 'REAR CAMERA'}
                 </button>
@@ -610,11 +610,11 @@ export default function Scanner() {
             )}
 
             {/* SECTOR LIST TOGGLES: Speech & Diagnostics Log */}
-            <div className="flex flex-col space-y-3 border-t border-yellow-white/10 pt-3 font-mono">
+            <div className="flex flex-col space-y-3 border-t border-white/10 pt-3 font-mono">
               {/* Log Panel Enable */}
               <div className="flex items-center justify-between">
                 <div className="flex flex-col space-y-0.5">
-                  <span className="text-xs font-bold text-yellow-white opacity-80 flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-off-white opacity-80 flex items-center gap-1.5">
                     <List className="w-3.5 h-3.5" />
                     DETECTION LOG
                   </span>
@@ -624,7 +624,7 @@ export default function Scanner() {
                   className="relative inline-block w-10 h-5 cursor-pointer select-none"
                   onClick={() => setShowLogs(!showLogs)}
                 >
-                  <div className={`absolute inset-0 border border-yellow-white/20 transition-colors duration-200 rounded-full ${showLogs ? 'bg-neon-green border-neon-green' : 'bg-[#0c0c0c]'}`} />
+                  <div className={`absolute inset-0 border border-white/20 transition-colors duration-200 rounded-full ${showLogs ? 'bg-neon-green border-neon-green' : 'bg-[#0c0c0c]'}`} />
                   <div className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full transition-transform duration-200 ${showLogs ? 'bg-black translate-x-[18px]' : 'bg-white'}`} />
                 </div>
               </div>
@@ -632,7 +632,7 @@ export default function Scanner() {
               {/* Speak Assist Enable */}
               <div className="flex items-center justify-between pt-1">
                 <div className="flex flex-col space-y-0.5">
-                  <span className="text-xs font-bold text-yellow-white opacity-80 flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-off-white opacity-80 flex items-center gap-1.5">
                     {voiceEnabled ? <Volume2 className="w-3.5 h-3.5 text-neon-green" /> : <VolumeX className="w-3.5 h-3.5 opacity-55" />}
                     AUDIO ASSIST
                   </span>
@@ -642,17 +642,17 @@ export default function Scanner() {
                   className="relative inline-block w-10 h-5 cursor-pointer select-none"
                   onClick={() => setVoiceEnabled(!voiceEnabled)}
                 >
-                  <div className={`absolute inset-0 border border-yellow-white/20 transition-colors duration-200 rounded-full ${voiceEnabled ? 'bg-neon-green border-neon-green' : 'bg-[#0c0c0c]'}`} />
+                  <div className={`absolute inset-0 border border-white/20 transition-colors duration-200 rounded-full ${voiceEnabled ? 'bg-neon-green border-neon-green' : 'bg-[#0c0c0c]'}`} />
                   <div className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full transition-transform duration-200 ${voiceEnabled ? 'bg-black translate-x-[18px]' : 'bg-white'}`} />
                 </div>
               </div>
             </div>
 
             {/* CAPTURE DIAGNOSTIC SNAP ACTIONS */}
-            <div className="border-t border-yellow-white/10 pt-3">
+            <div className="border-t border-white/10 pt-3">
               <button 
                 onClick={captureScreenshot}
-                className="w-full py-2.5 px-4 shadow-md bg-yellow-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-yellow-white/95 duration-150 flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer transition-all border border-yellow-white"
+                className="w-full py-2.5 px-4 shadow-md bg-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-white/90 duration-150 flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer transition-all border border-white"
               >
                 <Download className="w-4 h-4" />
                 Capture Snapshot
@@ -668,7 +668,7 @@ export default function Scanner() {
           <button 
             onClick={toggleScanner}
             disabled={isLoading}
-            className="px-6 py-3.5 rounded-full font-mono text-xs font-bold bg-yellow-white text-black hover:bg-yellow-white/90 border border-yellow-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group"
+            className="px-6 py-3.5 rounded-full font-mono text-xs font-bold bg-white text-black hover:bg-white/90 border border-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group"
           >
             <Square className="w-4 h-4 fill-current text-black" />
             STOP SCANNER
