@@ -20,7 +20,7 @@ import {
   ZoomOut,
   X
 } from 'lucide-react';
-import { drawSketchyBoxes, Prediction } from '../utils/draw';
+import { drawSketchyBoxes, Prediction, getSciFiLabel } from '../utils/draw';
 import { speakObject } from '../utils/speech';
 
 interface LogEntry {
@@ -56,6 +56,10 @@ export default function Scanner() {
   const [showLogs, setShowLogs] = useState(true);
   const [showControls, setShowControls] = useState(false); // Close settings by default on launch
   const [hudVisible, setHudVisible] = useState(true);
+  
+  // Adaptive Performance Metrics
+  const [currentFps, setCurrentFps] = useState<number>(60);
+  const [adaptiveThrottleActive, setAdaptiveThrottleActive] = useState<boolean>(false);
 
   // Performance-critical state synchronization to eliminate double loops & lag on change:
   const thresholdRef = useRef(50);
@@ -65,6 +69,10 @@ export default function Scanner() {
   const lastScanTime = useRef<number>(0);
   const requestRef = useRef<number | null>(null);
   const lastLogTime = useRef<Record<string, number>>({});
+  
+  // FPS Calculations References
+  const lastFpsTimeRef = useRef<number>(Date.now());
+  const frameCountRef = useRef<number>(0);
 
   // Web Worker performance-critical isolation states
   const workerRef = useRef<Worker | null>(null);
@@ -123,11 +131,16 @@ export default function Scanner() {
     
     const now = Date.now();
     filtered.forEach(pred => {
-      speakObject(pred.class, voiceEnabledRef.current);
+      const sciFiLabel = getSciFiLabel(pred.class);
+      
+      // Pass the fully localized scifi phrase to the sequential speech assist queue
+      speakObject(pred.class, voiceEnabledRef.current, `Target identified: ${sciFiLabel}`);
       
       const lastLog = lastLogTime.current[pred.class] || 0;
       if (now - lastLog > 3000) {
-        addLog(`DETECTED: ${pred.class.toUpperCase()}`, 'detect', Math.round(pred.score * 100));
+        // High fidelity immersive diagnostics log text replacement
+        const displayLogText = `STRUCTURAL ANALYSIS: ${sciFiLabel} FOUND`;
+        addLog(displayLogText, 'detect', Math.round(pred.score * 100));
         lastLogTime.current[pred.class] = now;
       }
     });
@@ -139,6 +152,11 @@ export default function Scanner() {
 
     const workerCode = `
       self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+      try {
+        self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tf-backend-wasm.min.js');
+      } catch (err) {
+        console.warn('WASM script download failed, resorting to CPU backend', err);
+      }
       self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
 
       let model = null;
@@ -155,9 +173,22 @@ export default function Scanner() {
           try {
             self.postMessage({ type: 'status', text: 'DOWNLOADING ' + modelBase.toUpperCase() + ' MODEL...' });
             
-            // Re-initialize TF CPU backend explicitly for sandboxed Worker context
+            // Re-initialize TF with WebAssembly or fallback CPU for sandboxed Worker context
             if (self.tf) {
-              await self.tf.setBackend('cpu');
+              try {
+                if (self.tf.wasm) {
+                  self.tf.wasm.setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/');
+                  await self.tf.setBackend('wasm');
+                  self.postMessage({ type: 'status', text: 'WASM HEAVY INFERENCE BACKEND ENGAGED' });
+                } else {
+                  await self.tf.setBackend('cpu');
+                  self.postMessage({ type: 'status', text: 'STANDARD RESPONSIVE CPU BACKEND ACTIVE' });
+                }
+              } catch (wasmErr) {
+                console.warn('WASM setBackend failed, falling back to CPU:', wasmErr);
+                await self.tf.setBackend('cpu');
+                self.postMessage({ type: 'status', text: 'HARDWARE CORRECTION: STANDARD CPU ACTIVE' });
+              }
               await self.tf.ready();
             }
             
@@ -243,9 +274,37 @@ export default function Scanner() {
       canvasRef.current.height = video.videoHeight;
     }
 
+    // Monitor real-time main-thread FPS to adapt dynamically to thermals & hardware
+    frameCountRef.current++;
+    const fpsNow = Date.now();
+    const elapsed = fpsNow - lastFpsTimeRef.current;
+    if (elapsed >= 1000) {
+      const calculatedFps = Math.round((frameCountRef.current * 1000) / elapsed);
+      setCurrentFps(calculatedFps);
+      frameCountRef.current = 0;
+      lastFpsTimeRef.current = fpsNow;
+
+      // Adaptive throttle scaling: If FPS drops below 55 FPS, auto-escalate from current scan interval (e.g. 250ms/Mid) to 500ms (Eco)
+      if (calculatedFps < 55) {
+        if (!adaptiveThrottleActive) {
+          setAdaptiveThrottleActive(true);
+          addLog('FRAME JITTER TRIGGERED (FPS < 55) — COOLDOWN ECO ACTIVE [500ms]', 'unidentified');
+        }
+      } else if (calculatedFps >= 57) {
+        if (adaptiveThrottleActive) {
+          setAdaptiveThrottleActive(false);
+          addLog('STABLE INTERACTIVE FRAME RATE COMMITTED — SCAN MULTIPLIER RECOVERED', 'init');
+        }
+      }
+    }
+
+    const effectiveScanInterval = adaptiveThrottleActive 
+      ? Math.max(500, scanIntervalRef.current) 
+      : scanIntervalRef.current;
+
     const now = Date.now();
     // Throttled inference check: only executes next step if configured scan interval has passed and worker is free
-    if (now - lastScanTime.current >= scanIntervalRef.current && !workerBusyRef.current) {
+    if (now - lastScanTime.current >= effectiveScanInterval && !workerBusyRef.current) {
       lastScanTime.current = now;
       try {
         // Initialize or retrieve the off-screen 300x300 downscaling pre-processor canvas
@@ -281,7 +340,7 @@ export default function Scanner() {
     if (loopActive.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
     }
-  }, []);
+  }, [adaptiveThrottleActive, addLog]);
 
   useEffect(() => {
     if (isScanning && modelLoaded) {
@@ -514,7 +573,7 @@ export default function Scanner() {
 
       {/* Quick Status Bar Overlays (Rendered when HUD is visible) */}
       {isScanning && hudVisible && (
-        <div className="fixed top-20 left-4 md:left-8 z-40 flex items-center gap-3">
+        <div className="fixed top-20 left-4 md:left-8 z-40 flex flex-wrap items-center gap-3">
           <div className="glass-panel px-3.5 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
@@ -522,6 +581,18 @@ export default function Scanner() {
             </span>
             <span className="font-mono text-[10px] md:text-sm font-bold text-off-white tracking-widest uppercase">
               SCANNING ACTIVE
+            </span>
+          </div>
+
+          {/* Real-time main-thread frame timings & auto-throttle eco states */}
+          <div className={`glass-panel px-3.5 py-1.5 rounded-lg border flex items-center gap-2 duration-150 ${adaptiveThrottleActive ? 'border-red-500/30 text-red-400 bg-red-950/20' : 'border-white/10 text-off-white bg-black/40'}`}>
+            <span className="font-mono text-[10px] md:text-xs font-bold tracking-widest uppercase flex items-center gap-1.5">
+              RENDER: {currentFps} FPS
+              {adaptiveThrottleActive && (
+                <span className="text-[9px] animate-pulse text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded ml-1 font-black leading-none">
+                  ECO ACTIVE
+                </span>
+              )}
             </span>
           </div>
 
@@ -533,6 +604,49 @@ export default function Scanner() {
               </span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Visual snaps slider on outer screen rim for match threshold calibration */}
+      {isScanning && hudVisible && (
+        <div className="fixed right-4 md:right-8 top-[32%] z-40 flex flex-col items-center bg-[#0C0C0C]/90 border border-white/15 rounded-2xl px-2.5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.9)] max-w-[60px] backdrop-blur-md">
+          <div className="text-[8px] font-mono font-bold text-center text-neon-green tracking-widest leading-none mb-1.5 uppercase">
+            CONFIDENCE
+          </div>
+          <div className="text-[12px] font-mono font-black text-white text-center mb-4">
+            {threshold}%
+          </div>
+          <div className="h-44 flex items-center justify-center relative">
+            {/* Visual background ticks / snapping marks */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-white/10 flex flex-col justify-between py-1 pointer-events-none">
+              <span className="w-2 h-[2px] bg-white/20"></span>
+              <span className="w-2 h-[2px] bg-white/20"></span>
+              <span className="w-2 h-[2px] bg-white/20"></span>
+              <span className="w-2 h-[2px] bg-white/20"></span>
+              <span className="w-2 h-[2px] bg-white/20"></span>
+            </div>
+            <input 
+              type="range" 
+              min="15" 
+              max="95" 
+              step="10" // Physical granular snapping step
+              value={threshold} 
+              onChange={(e) => setThreshold(Number(e.target.value))}
+              className="accent-neon-green cursor-ns-resize"
+              style={{
+                writingMode: 'vertical-lr',
+                WebkitAppearance: 'slider-vertical',
+                height: '154px',
+                width: '16px'
+              }}
+              title="Confidence Snapping Slider"
+            />
+          </div>
+          <div className="flex flex-col gap-1 items-center justify-center mt-4 border-t border-white/10 pt-2.5 text-[8px] font-mono text-gray-500 font-bold select-none leading-none">
+            <span className={threshold >= 75 ? 'text-neon-green font-black font-mono' : ''}>HIGH</span>
+            <span className={threshold >= 45 && threshold < 75 ? 'text-neon-green font-black font-mono' : ''}>MID</span>
+            <span className={threshold < 45 ? 'text-neon-green font-black font-mono' : ''}>LOW</span>
+          </div>
         </div>
       )}
 
