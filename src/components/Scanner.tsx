@@ -18,7 +18,14 @@ import {
   Download,
   ZoomIn,
   ZoomOut,
-  X
+  X,
+  Sparkles,
+  Cpu,
+  Atom,
+  Info,
+  Activity,
+  Gauge,
+  Thermometer
 } from 'lucide-react';
 import { drawSketchyBoxes, Prediction, getSciFiLabel } from '../utils/draw';
 import { speakObject } from '../utils/speech';
@@ -57,6 +64,11 @@ export default function Scanner() {
   const [showControls, setShowControls] = useState(false); // Close settings by default on launch
   const [hudVisible, setHudVisible] = useState(true);
   
+  // Gemini Quantum Scanner states
+  const [isScanningGemini, setIsScanningGemini] = useState(false);
+  const [geminiResult, setGeminiResult] = useState<any | null>(null);
+  const [geminiError, setGeminiError] = useState<string | null>(null);
+  
   // Adaptive Performance Metrics
   const [currentFps, setCurrentFps] = useState<number>(60);
   const [adaptiveThrottleActive, setAdaptiveThrottleActive] = useState<boolean>(false);
@@ -85,6 +97,18 @@ export default function Scanner() {
   useEffect(() => { thresholdRef.current = threshold; }, [threshold]);
   useEffect(() => { voiceEnabledRef.current = voiceEnabled; }, [voiceEnabled]);
   useEffect(() => { scanIntervalRef.current = scanInterval; }, [scanInterval]);
+
+  // Handle document.body class to cleanly fade out the header and avoid overlapping z-index bugs on mobile
+  useEffect(() => {
+    if (showControls) {
+      document.body.classList.add('calibration-open');
+    } else {
+      document.body.classList.remove('calibration-open');
+    }
+    return () => {
+      document.body.classList.remove('calibration-open');
+    };
+  }, [showControls]);
 
   // Check camera sources on mount to enable rear/front flip toggles
   useEffect(() => {
@@ -175,6 +199,68 @@ export default function Scanner() {
       localModelLoadingRef.current = false;
     }
   }, [addLog]);
+
+  // Trigger server-side high-fidelity Gemini 2.5/3.5 Flash scan of the active camera state
+  const triggerQuantumScan = async () => {
+    if (isScanningGemini) return;
+    
+    const webcam = webcamRef.current;
+    if (!webcam) return;
+
+    try {
+      setIsScanningGemini(true);
+      setGeminiError(null);
+      setGeminiResult(null); // Clear previous results to trigger transition
+      addLog('QUANTUM SPECTRUM EMITTING... ANALYZING MATRIX TARGET', 'detect');
+      
+      const screenshot = webcam.getScreenshot();
+      if (!screenshot) {
+        throw new Error("Unable to capture optical lens state.");
+      }
+
+      // Gather current real-time edge labels to pass as context
+      const currentLabels = (predictionsRef.current || [])
+        .filter(p => (p.score * 100) >= thresholdRef.current)
+        .map(p => p.class);
+
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          image: screenshot,
+          currentLabels
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
+      }
+
+      const result = await response.json();
+      setGeminiResult(result);
+      
+      // Voice synthesis response for the identified object
+      if (voiceEnabledRef.current && result.name) {
+        speakObject(
+          result.name, 
+          true, 
+          `Quantum Scan complete. Target identified as: ${result.name}.`
+        );
+      }
+      
+      addLog(`QUANTUM RESOLUTION: ${result.name.toUpperCase()} RECONSTRUCTED`, 'detect', 100);
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.message || "Unknown scan error.";
+      setGeminiError(msg);
+      addLog(`QUANTUM ERROR: ${msg.substring(0, 30).toUpperCase()}`, 'error');
+    } finally {
+      setIsScanningGemini(false);
+    }
+  };
 
   // Independent background neural inference loop running out-of-band to prevent camera & browser stuttering
   const runInference = useCallback(async () => {
@@ -446,6 +532,7 @@ export default function Scanner() {
               audio={false}
               ref={webcamRef} 
               mirrored={facingMode === 'user'}
+              screenshotFormat="image/jpeg"
               videoConstraints={{ 
                 facingMode: facingMode,
                 width: { ideal: 1280 },
@@ -839,15 +926,192 @@ export default function Scanner() {
 
       {/* Floating Low-Profile Start/Stop Trigger Console at Bottom Viewport */}
       {isScanning && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center gap-3 w-full max-w-xs sm:max-w-md px-4">
           <button 
             onClick={toggleScanner}
             disabled={isLoading}
-            className="px-6 py-3.5 rounded-full font-mono text-xs font-bold bg-white text-black hover:bg-white/90 border border-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group"
+            className="px-4 sm:px-5 py-3.5 rounded-full font-mono text-xs font-bold bg-black/90 text-off-white hover:bg-white hover:text-black border border-white/20 hover:border-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group flex-shrink-0"
           >
-            <Square className="w-4 h-4 fill-current text-black" />
-            STOP SCANNER
+            <Square className="w-4 h-4 fill-current text-current" />
+            STOP
           </button>
+
+          <button 
+            onClick={triggerQuantumScan}
+            disabled={isScanningGemini}
+            className="flex-1 px-4 sm:px-6 py-3.5 rounded-full font-mono text-xs font-bold bg-gradient-to-r from-neon-green to-emerald-500 text-black hover:brightness-110 flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,128,0,0.35)] duration-200 tracking-widest cursor-pointer font-black group"
+          >
+            <Sparkles className={`w-4 h-4 ${isScanningGemini ? 'animate-spin' : 'animate-pulse'}`} />
+            {isScanningGemini ? 'ANALYZING...' : 'QUANTUM DEEP SCAN'}
+          </button>
+        </div>
+      )}
+
+      {/* QUANTUM SCAN ACTIVE LOADER OVERLAY */}
+      {isScanningGemini && (
+        <div className="fixed inset-0 z-[120] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md animate-fade-in">
+          <div className="relative w-24 h-24 flex items-center justify-center mb-6">
+            <div className="absolute inset-0 rounded-full border-4 border-neon-green/10 border-t-neon-green animate-spin" />
+            <Sparkles className="w-8 h-8 text-neon-green animate-pulse" />
+          </div>
+          <h3 className="font-mono text-sm font-bold tracking-widest text-off-white mb-2 uppercase font-mono">EMITTING QUANTUM BEAMS</h3>
+          <p className="text-xs text-gray-400 font-sans max-w-xs leading-relaxed animate-pulse">
+            Analyzing target composition, thermal fields, and passive electromagnetic signatures in the cloud...
+          </p>
+        </div>
+      )}
+
+      {/* QUANTUM DEEP SCAN RESULTS MODAL */}
+      {geminiResult && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-lg glass-panel border border-neon-green/30 rounded-2xl p-6 shadow-[0_0_50px_rgba(0,255,0,0.15)] flex flex-col max-h-[90vh] overflow-y-auto custom-scrollbar text-off-white space-y-5" id="quantum-result-panel">
+            {/* Header */}
+            <div className="font-mono text-xs font-bold text-off-white border-b border-white/10 pb-3 flex items-center justify-between tracking-widest">
+              <span className="flex items-center gap-2 text-neon-green font-bold uppercase">
+                <Atom className="w-4 h-4 text-neon-green animate-spin" style={{ animationDuration: '6s' }} />
+                QUANTUM SPECTRUM RESOLVED
+              </span>
+              <button 
+                onClick={() => setGeminiResult(null)}
+                className="text-gray-400 hover:text-white duration-100 cursor-pointer p-1 hover:bg-white/5 rounded-md"
+                title="Dismiss Analysis"
+              >
+                <X className="w-5 h-5 text-off-white" />
+              </button>
+            </div>
+
+            {/* Main Object Header */}
+            <div className="flex flex-col space-y-1">
+              <span className="font-mono text-[9px] text-neon-green font-black tracking-widest uppercase bg-neon-green/10 px-2 py-1 rounded w-max">
+                {geminiResult.sciFiClassification}
+              </span>
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase mt-1">
+                {geminiResult.name}
+              </h2>
+            </div>
+
+            {/* Description */}
+            <div className="bg-white/5 border border-white/5 rounded-xl p-4 space-y-2">
+              <span className="font-mono text-[10px] text-gray-400 font-bold tracking-wider uppercase flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-neon-green" />
+                TACTICAL SCAN SUMMARY
+              </span>
+              <p className="text-sm text-gray-200 leading-relaxed font-sans font-medium">
+                {geminiResult.description}
+              </p>
+            </div>
+
+            {/* Attributes Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {geminiResult.attributes?.map((attr: any, idx: number) => (
+                <div key={idx} className="border border-white/10 bg-black/45 rounded-xl p-3 flex flex-col space-y-1">
+                  <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest font-bold">
+                    {attr.label}
+                  </span>
+                  <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                    {attr.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Technical Specifications */}
+            <div className="border-t border-white/10 pt-4">
+              <span className="font-mono text-[10px] text-gray-400 font-bold tracking-wider uppercase mb-3 block">
+                DIAGNOSTIC METRICS
+              </span>
+              <div className="grid grid-cols-3 gap-2 text-center bg-black/60 border border-white/5 rounded-xl p-3">
+                <div className="flex flex-col space-y-1">
+                  <Thermometer className="w-4 h-4 text-orange-400 mx-auto" />
+                  <span className="font-mono text-[8px] text-gray-500 uppercase">Temp</span>
+                  <span className="text-xs font-bold text-white font-mono">{geminiResult.technicalSpecs?.temperature}</span>
+                </div>
+                <div className="flex flex-col space-y-1 border-x border-white/10">
+                  <Cpu className="w-4 h-4 text-neon-green mx-auto" />
+                  <span className="font-mono text-[8px] text-gray-500 uppercase">Signature</span>
+                  <span className="text-[10px] font-bold text-white font-mono truncate px-1">{geminiResult.technicalSpecs?.spectralSignature}</span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <Activity className="w-4 h-4 text-blue-400 mx-auto animate-pulse" />
+                  <span className="font-mono text-[8px] text-gray-500 uppercase">Integrity</span>
+                  <span className="text-xs font-bold text-white font-mono">{geminiResult.technicalSpecs?.integrity}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Trivia / Lore Section */}
+            {geminiResult.trivia && (
+              <div className="border-t border-white/10 pt-4 pb-2">
+                <div className="flex items-start gap-2.5 text-xs text-gray-300 leading-relaxed bg-[#0c0c0c] border border-white/10 rounded-xl p-3.5">
+                  <Sparkles className="w-4 h-4 text-neon-green flex-shrink-0 mt-0.5 animate-pulse" />
+                  <div>
+                    <span className="font-mono text-[9px] text-neon-green font-bold uppercase tracking-widest block mb-1">ANALYZER NOTE</span>
+                    <p className="font-sans italic">{geminiResult.trivia}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer action buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setGeminiResult(null)}
+                className="flex-1 py-3 bg-white text-black font-mono text-xs font-bold rounded-xl hover:bg-white/90 duration-150 uppercase tracking-widest cursor-pointer border border-white shadow-[0_4px_12px_rgba(255,255,255,0.15)]"
+              >
+                RETURN TO LENS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUANTUM SCAN ERROR MODAL */}
+      {geminiError && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-md glass-panel border border-red-500/30 rounded-2xl p-6 shadow-[0_0_40px_rgba(255,0,0,0.1)] flex flex-col text-off-white space-y-5">
+            {/* Header */}
+            <div className="font-mono text-xs font-bold text-red-400 border-b border-white/10 pb-3 flex items-center justify-between tracking-widest">
+              <span className="flex items-center gap-2 font-bold uppercase">
+                <ShieldAlert className="w-4 h-4 text-red-500" />
+                QUANTUM SCAN FAULT
+              </span>
+              <button 
+                onClick={() => setGeminiError(null)}
+                className="text-gray-400 hover:text-white duration-100 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5 text-off-white" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-white uppercase font-mono">Neural Interface Interrupted</h3>
+              <div className="text-xs text-gray-300 leading-relaxed font-sans space-y-2">
+                {geminiError.includes("GEMINI_API_KEY") ? (
+                  <div>
+                    The quantum scanner requires a secure <strong className="text-neon-green font-mono">GEMINI_API_KEY</strong> secret to connect with the server-side proxy. 
+                    <br /><br />
+                    To resolve this:
+                    <ol className="list-decimal list-inside space-y-2 mt-2 ml-1 text-gray-400 font-sans">
+                      <li>Obtain a free key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-neon-green underline font-semibold">Google AI Studio</a>.</li>
+                      <li>Open the <strong className="text-white">Settings menu</strong> (gear icon) on the top right in the Google AI Studio Build chat UI.</li>
+                      <li>Add an Environment Variable with name <code className="bg-white/10 text-white px-1.5 py-0.5 rounded font-mono text-[11px]">GEMINI_API_KEY</code> and paste your API key as its value.</li>
+                    </ol>
+                  </div>
+                ) : (
+                  <p>{geminiError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setGeminiError(null)}
+                className="flex-1 py-3 bg-red-950/20 hover:bg-red-900/30 text-red-400 font-mono text-xs font-bold rounded-xl border border-red-500/30 duration-150 uppercase tracking-widest cursor-pointer"
+              >
+                DISMISS DIAGNOSTIC
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

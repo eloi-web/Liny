@@ -120,3 +120,18 @@ input[type=range].cursor-ns-resize::-webkit-slider-thumb {
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
 }
+
+/* Elegant HUD header fade-out when Calibration Modal is active */
+body:has(#calibration-modal) header,
+body.calibration-open header {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  display: none !important;
+  transition: opacity 0.2s ease-in-out;
+}
+
+header {
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+}
+
