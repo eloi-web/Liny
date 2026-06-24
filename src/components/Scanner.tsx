@@ -494,21 +494,29 @@ export default function Scanner() {
   return (
     <div className="w-full h-full relative">
       {/* Background Layer (Camera Offline State) */}
-      <div className="absolute inset-0 z-0 bg-[#0C0C0C] flex flex-col items-center justify-center p-6 text-center">
+      <div 
+        className="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-[#0C0C0C] transition-all duration-300"
+        style={{
+          backgroundImage: !isScanning ? 'linear-gradient(rgba(12, 12, 12, 0.65), rgba(12, 12, 12, 0.75)), url("/patterns_1.jpg")' : 'none',
+          backgroundRepeat: 'repeat',
+          backgroundPosition: 'center',
+          backgroundSize: 'cover'
+        }}
+      >
         {!isScanning && !isLoading && (
-          <div className="max-w-md p-6 border border-white/10 glass-panel rounded-xl flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 text-off-white animate-pulse">
-              <CameraOff className="w-8 h-8 opacity-60 text-off-white" />
+          <div className="max-w-md p-8 border border-white/10 glass-panel rounded-2xl flex flex-col items-center shadow-[0_8px_32px_rgba(0,0,0,0.7)] backdrop-blur-md">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-5 text-off-white animate-pulse border border-white/5">
+              <CameraOff className="w-7 h-7 opacity-70 text-neon-green" />
             </div>
             <h2 className="font-mono text-lg font-bold tracking-widest text-off-white mb-2 uppercase">LENS TERMINAL</h2>
-            <p className="text-xs text-gray-400 font-sans mb-6 max-w-sm">
+            <p className="text-xs text-gray-400 font-sans mb-6 max-w-sm leading-relaxed">
               Press "START SCANNER" to trigger local webcam diagnostics. Your video remains 100% private and processed on device.
             </p>
             <button 
               onClick={toggleScanner}
-              className="px-6 py-2.5 bg-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-white/90 transition-all border border-white shadow-[0_0_15px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 tracking-wider duration-150 cursor-pointer"
+              className="px-6 py-3 bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 transition-all border border-white shadow-[0_0_20px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 tracking-widest duration-150 cursor-pointer uppercase font-bold"
             >
-              <Play className="w-4 h-4 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               START SCANNER
             </button>
           </div>
