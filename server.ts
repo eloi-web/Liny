@@ -40,7 +40,14 @@ async function startServer() {
       }
 
       // Initialize GoogleGenAI client lazily to prevent server crashes if the key is missing
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ 
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
 
       const labelsContext = currentLabels && currentLabels.length > 0 
         ? `The real-time local edge detector noticed: ${currentLabels.join(", ")}.` 
@@ -74,21 +81,44 @@ Return your response in exactly this JSON format (do not wrap in markdown or any
 
 Ensure the analysis is highly professional, clean, engaging, and fits a high-tech/clean interface.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: mimeType
-            }
-          },
-          prompt
-        ],
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
+      let response;
+      try {
+        console.log("Attempting scan with primary model: gemini-3.5-flash");
+        response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType
+              }
+            },
+            prompt
+          ],
+          config: {
+            responseMimeType: "application/json"
+          }
+        });
+      } catch (primaryErr: any) {
+        console.warn("Primary model gemini-3.5-flash failed or busy. Attempting fallback model gemini-flash-latest...", primaryErr.message);
+        
+        // Automatic fallback to the hyper-stable gemini-flash-latest
+        response = await ai.models.generateContent({
+          model: "gemini-flash-latest",
+          contents: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType
+              }
+            },
+            prompt
+          ],
+          config: {
+            responseMimeType: "application/json"
+          }
+        });
+      }
 
       const responseText = response.text || "";
       let parsedData;
