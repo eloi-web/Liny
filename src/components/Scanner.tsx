@@ -79,6 +79,7 @@ export default function Scanner() {
   const localModelLoadingRef = useRef<boolean>(false);
   const inferenceBusyRef = useRef<boolean>(false);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const predictionsRef = useRef<Prediction[]>([]);
 
   // Real-time synchronization of state pointers with active loop refs:
   useEffect(() => { thresholdRef.current = threshold; }, [threshold]);
@@ -107,40 +108,20 @@ export default function Scanner() {
     });
   }, []);
 
-  const processPredictions = useCallback((rawPredictions: Prediction[]) => {
-    if (!canvasRef.current || !isScanning) return;
+  const processPredictionsLogs = useCallback((rawPredictions: Prediction[]) => {
+    if (!isScanning) return;
 
-    const canvas = canvasRef.current;
-    
-    // Scale 300x300 worker-processed prediction results back to match displaying overlay layout sizes
-    const scaleX = canvas.width / 300;
-    const scaleY = canvas.height / 300;
-
-    const scaled = rawPredictions.map(pred => ({
-      ...pred,
-      bbox: [
-        pred.bbox[0] * scaleX,
-        pred.bbox[1] * scaleY,
-        pred.bbox[2] * scaleX,
-        pred.bbox[3] * scaleY
-      ] as [number, number, number, number]
-    }));
-
-    const filtered = scaled.filter(p => (p.score * 100) >= thresholdRef.current);
-    
-    drawSketchyBoxes(canvas, filtered);
-    
+    const filtered = rawPredictions.filter(p => (p.score * 100) >= thresholdRef.current);
     const now = Date.now();
     filtered.forEach(pred => {
-      const sciFiLabel = getSciFiLabel(pred.class);
+      const friendlyLabel = getSciFiLabel(pred.class);
       
-      // Pass the fully localized scifi phrase to the sequential speech assist queue
-      speakObject(pred.class, voiceEnabledRef.current, `Target identified: ${sciFiLabel}`);
+      // Pass the fully localized friendly phrase to the sequential speech assist queue
+      speakObject(pred.class, voiceEnabledRef.current, `Target identified: ${friendlyLabel}`);
       
       const lastLog = lastLogTime.current[pred.class] || 0;
       if (now - lastLog > 3000) {
-        // High fidelity immersive diagnostics log text replacement
-        const displayLogText = `STRUCTURAL ANALYSIS: ${sciFiLabel} FOUND`;
+        const displayLogText = `${friendlyLabel.toUpperCase()} IDENTIFIED`;
         addLog(displayLogText, 'detect', Math.round(pred.score * 100));
         lastLogTime.current[pred.class] = now;
       }
@@ -195,8 +176,50 @@ export default function Scanner() {
     }
   }, [addLog]);
 
-  // Performance-optimal frame detector loop (capped & highly controlled via refs to prevent memory leakage)
-  const detectFrame = useCallback(async () => {
+  // Independent background neural inference loop running out-of-band to prevent camera & browser stuttering
+  const runInference = useCallback(async () => {
+    if (!loopActive.current) return;
+
+    const webcam = webcamRef.current;
+    if (webcam && webcam.video && webcam.video.readyState === 4 && localModelRef.current && !inferenceBusyRef.current) {
+      try {
+        inferenceBusyRef.current = true;
+        const video = webcam.video;
+        
+        // Downsample to a fast, clean 300x300 matrix
+        if (!offscreenCanvasRef.current) {
+          offscreenCanvasRef.current = document.createElement('canvas');
+          offscreenCanvasRef.current.width = 300;
+          offscreenCanvasRef.current.height = 300;
+        }
+        
+        const offscreen = offscreenCanvasRef.current;
+        const octx = offscreen.getContext('2d');
+        if (octx) {
+          octx.drawImage(video, 0, 0, 300, 300);
+          
+          const rawPredictions = await localModelRef.current.detect(offscreen);
+          predictionsRef.current = rawPredictions || [];
+          
+          processPredictionsLogs(rawPredictions || []);
+        }
+      } catch (e) {
+        console.error("Tensorflow inference processing crashed: ", e);
+      } finally {
+        inferenceBusyRef.current = false;
+      }
+    }
+
+    const effectiveScanInterval = adaptiveThrottleActive 
+      ? Math.max(500, scanIntervalRef.current) 
+      : scanIntervalRef.current;
+
+    // Schedule next out-of-band prediction tick
+    setTimeout(runInference, effectiveScanInterval);
+  }, [adaptiveThrottleActive, processPredictionsLogs]);
+
+  // Performance-optimal 60 FPS drawing and animation loop (runs unblocked by inference)
+  const detectFrame = useCallback(() => {
     if (!loopActive.current) return;
     if (!webcamRef.current || !webcamRef.current.video || !canvasRef.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
@@ -209,10 +232,14 @@ export default function Scanner() {
       return;
     }
     
-    // Auto-update canvas resolution matching physical camera output
-    if (canvasRef.current.width !== video.videoWidth) {
-      canvasRef.current.width = video.videoWidth;
-      canvasRef.current.height = video.videoHeight;
+    const canvas = canvasRef.current;
+
+    // Auto-update canvas resolution matching physical container display size
+    if (video.clientWidth > 0 && video.clientHeight > 0) {
+      if (canvas.width !== video.clientWidth || canvas.height !== video.clientHeight) {
+        canvas.width = video.clientWidth;
+        canvas.height = video.clientHeight;
+      }
     }
 
     // Monitor real-time main-thread FPS to adapt dynamically to thermals & hardware
@@ -225,7 +252,7 @@ export default function Scanner() {
       frameCountRef.current = 0;
       lastFpsTimeRef.current = fpsNow;
 
-      // Adaptive throttle scaling: If FPS drops below 55 FPS, auto-escalate from current scan interval (e.g. 250ms/Mid) to 500ms (Eco)
+      // Adaptive throttle scaling
       if (calculatedFps < 55) {
         if (!adaptiveThrottleActive) {
           setAdaptiveThrottleActive(true);
@@ -239,50 +266,37 @@ export default function Scanner() {
       }
     }
 
-    const effectiveScanInterval = adaptiveThrottleActive 
-      ? Math.max(500, scanIntervalRef.current) 
-      : scanIntervalRef.current;
+    // Map the latest out-of-band coordinates to current 60fps canvas size and draw
+    if (canvas.width > 0 && canvas.height > 0) {
+      const scaleX = canvas.width / 300;
+      const scaleY = canvas.height / 300;
+      const rawPredictions = predictionsRef.current || [];
 
-    const now = Date.now();
-    // Throttled inference check: only executes next step if configured scan interval has passed and thread is idle
-    if (now - lastScanTime.current >= effectiveScanInterval && !inferenceBusyRef.current && localModelRef.current) {
-      lastScanTime.current = now;
-      try {
-        // Initialize or retrieve the off-screen 300x300 downscaling pre-processor canvas
-        if (!offscreenCanvasRef.current) {
-          offscreenCanvasRef.current = document.createElement('canvas');
-          offscreenCanvasRef.current.width = 300;
-          offscreenCanvasRef.current.height = 300;
-        }
-        
-        const offscreen = offscreenCanvasRef.current;
-        const octx = offscreen.getContext('2d');
-        if (octx) {
-          // Downsample frame directly onto a compact 300x300 canvas, cutting data sizes by 85%
-          octx.drawImage(video, 0, 0, 300, 300);
-          
-          inferenceBusyRef.current = true;
-          
-          // Run prediction on the 300x300 image
-          const predictions = await localModelRef.current.detect(offscreen);
-          processPredictions(predictions || []);
-        }
-      } catch (e) {
-        console.error("Tensorflow inference processing crashed: ", e);
-      } finally {
-        inferenceBusyRef.current = false;
-      }
+      const scaled = rawPredictions.map(pred => ({
+        ...pred,
+        bbox: [
+          pred.bbox[0] * scaleX,
+          pred.bbox[1] * scaleY,
+          pred.bbox[2] * scaleX,
+          pred.bbox[3] * scaleY
+        ] as [number, number, number, number]
+      }));
+
+      const filtered = scaled.filter(p => (p.score * 100) >= thresholdRef.current);
+      drawSketchyBoxes(canvas, filtered);
     }
     
     if (loopActive.current) {
       requestRef.current = requestAnimationFrame(detectFrame);
     }
-  }, [adaptiveThrottleActive, addLog, processPredictions]);
+  }, [adaptiveThrottleActive, addLog]);
 
   useEffect(() => {
     if (isScanning && modelLoaded) {
       loopActive.current = true;
       requestRef.current = requestAnimationFrame(detectFrame);
+      // Run the background non-blocking inference loop
+      runInference();
     } else {
       loopActive.current = false;
       if (requestRef.current) {
@@ -297,7 +311,7 @@ export default function Scanner() {
         requestRef.current = null;
       }
     };
-  }, [isScanning, modelLoaded, detectFrame]);
+  }, [isScanning, modelLoaded, detectFrame, runInference]);
 
   // Request native permission explicitly before mounting stream to avoid silent blocks
   const requestCameraPermissionDirectly = async (): Promise<boolean> => {
@@ -629,7 +643,7 @@ export default function Scanner() {
 
       {/* Centered Scrollable Calibration Dialog (Fully responsive, centers safely, easily scrollable) */}
       {isScanning && hudVisible && showControls && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="w-full max-w-sm md:max-w-md glass-panel border border-white/10 rounded-2xl p-5 md:p-6 shadow-[0_8px_40px_rgba(0,0,0,0.95)] flex flex-col max-h-[85vh] overflow-y-auto custom-scrollbar text-off-white space-y-5" id="calibration-modal">
             {/* Header */}
             <div className="font-mono text-xs font-bold text-off-white border-b border-white/10 pb-3 flex items-center justify-between tracking-widest">
