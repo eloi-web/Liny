@@ -32,7 +32,7 @@ export default function App() {
       </header>
 
       {/* Main Content Area - Full screen container */}
-      <main className="absolute inset-0 w-full h-full z-10">
+      <main className="absolute inset-0 w-full h-full">
         <Scanner />
       </main>
     </div>
