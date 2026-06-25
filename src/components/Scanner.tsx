@@ -203,11 +203,24 @@ export default function Scanner() {
         inferenceBusyRef.current = true;
         const video = webcam.video;
         
-        // Pass video directly to TensorFlow to utilize highly optimized WebGL/WASM texture processing on phones
-        const rawPredictions = await localModelRef.current.detect(video);
-        predictionsRef.current = rawPredictions || [];
+        // Downsample to a fast, clean 300x300 matrix to prevent mobile lag
+        if (!offscreenCanvasRef.current) {
+          offscreenCanvasRef.current = document.createElement('canvas');
+          offscreenCanvasRef.current.width = 300;
+          offscreenCanvasRef.current.height = 300;
+        }
         
-        processPredictionsLogs(rawPredictions || []);
+        const offscreen = offscreenCanvasRef.current;
+        const octx = offscreen.getContext('2d');
+        if (octx) {
+          // Squish image into 300x300 matrix to perfectly match the scale-back calculation
+          octx.drawImage(video, 0, 0, 300, 300);
+          
+          const rawPredictions = await localModelRef.current.detect(offscreen);
+          predictionsRef.current = rawPredictions || [];
+          
+          processPredictionsLogs(rawPredictions || []);
+        }
       } catch (e) {
         console.error("Tensorflow inference processing crashed: ", e);
       } finally {
@@ -272,9 +285,9 @@ export default function Scanner() {
     }
 
     // Map the latest out-of-band coordinates to current 60fps canvas size and draw
-    if (canvas.width > 0 && canvas.height > 0 && video.videoWidth > 0 && video.videoHeight > 0) {
-      const scaleX = canvas.width / video.videoWidth;
-      const scaleY = canvas.height / video.videoHeight;
+    if (canvas.width > 0 && canvas.height > 0) {
+      const scaleX = canvas.width / 300;
+      const scaleY = canvas.height / 300;
       const rawPredictions = predictionsRef.current || [];
 
       const scaled = rawPredictions.map(pred => ({
