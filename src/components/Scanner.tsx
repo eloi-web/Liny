@@ -47,7 +47,6 @@ export default function Scanner() {
   const [scanInterval, setScanInterval] = useState(250); // defaults to 250ms (smooth for mobile)
   
   const [isScanning, setIsScanning] = useState(false);
-  const [threshold, setThreshold] = useState(50);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([{
     id: 0, 
@@ -63,11 +62,6 @@ export default function Scanner() {
   const [showLogs, setShowLogs] = useState(true);
   const [showControls, setShowControls] = useState(false); // Close settings by default on launch
   const [hudVisible, setHudVisible] = useState(true);
-  
-  // Gemini Quantum Scanner states
-  const [isScanningGemini, setIsScanningGemini] = useState(false);
-  const [geminiResult, setGeminiResult] = useState<any | null>(null);
-  const [geminiError, setGeminiError] = useState<string | null>(null);
   
   // Adaptive Performance Metrics
   const [currentFps, setCurrentFps] = useState<number>(60);
@@ -94,7 +88,6 @@ export default function Scanner() {
   const predictionsRef = useRef<Prediction[]>([]);
 
   // Real-time synchronization of state pointers with active loop refs:
-  useEffect(() => { thresholdRef.current = threshold; }, [threshold]);
   useEffect(() => { voiceEnabledRef.current = voiceEnabled; }, [voiceEnabled]);
   useEffect(() => { scanIntervalRef.current = scanInterval; }, [scanInterval]);
 
@@ -200,68 +193,6 @@ export default function Scanner() {
     }
   }, [addLog]);
 
-  // Trigger server-side high-fidelity Gemini 2.5/3.5 Flash scan of the active camera state
-  const triggerQuantumScan = async () => {
-    if (isScanningGemini) return;
-    
-    const webcam = webcamRef.current;
-    if (!webcam) return;
-
-    try {
-      setIsScanningGemini(true);
-      setGeminiError(null);
-      setGeminiResult(null); // Clear previous results to trigger transition
-      addLog('QUANTUM SPECTRUM EMITTING... ANALYZING MATRIX TARGET', 'detect');
-      
-      const screenshot = webcam.getScreenshot();
-      if (!screenshot) {
-        throw new Error("Unable to capture optical lens state.");
-      }
-
-      // Gather current real-time edge labels to pass as context
-      const currentLabels = (predictionsRef.current || [])
-        .filter(p => (p.score * 100) >= thresholdRef.current)
-        .map(p => p.class);
-
-      const response = await fetch('/api/scan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          image: screenshot,
-          currentLabels
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error ${response.status}`);
-      }
-
-      const result = await response.json();
-      setGeminiResult(result);
-      
-      // Voice synthesis response for the identified object
-      if (voiceEnabledRef.current && result.name) {
-        speakObject(
-          result.name, 
-          true, 
-          `Quantum Scan complete. Target identified as: ${result.name}.`
-        );
-      }
-      
-      addLog(`QUANTUM RESOLUTION: ${result.name.toUpperCase()} RECONSTRUCTED`, 'detect', 100);
-    } catch (err: any) {
-      console.error(err);
-      const msg = err.message || "Unknown scan error.";
-      setGeminiError(msg);
-      addLog(`QUANTUM ERROR: ${msg.substring(0, 30).toUpperCase()}`, 'error');
-    } finally {
-      setIsScanningGemini(false);
-    }
-  };
-
   // Independent background neural inference loop running out-of-band to prevent camera & browser stuttering
   const runInference = useCallback(async () => {
     if (!loopActive.current) return;
@@ -272,23 +203,11 @@ export default function Scanner() {
         inferenceBusyRef.current = true;
         const video = webcam.video;
         
-        // Downsample to a fast, clean 300x300 matrix
-        if (!offscreenCanvasRef.current) {
-          offscreenCanvasRef.current = document.createElement('canvas');
-          offscreenCanvasRef.current.width = 300;
-          offscreenCanvasRef.current.height = 300;
-        }
+        // Pass video directly to TensorFlow to utilize highly optimized WebGL/WASM texture processing on phones
+        const rawPredictions = await localModelRef.current.detect(video);
+        predictionsRef.current = rawPredictions || [];
         
-        const offscreen = offscreenCanvasRef.current;
-        const octx = offscreen.getContext('2d');
-        if (octx) {
-          octx.drawImage(video, 0, 0, 300, 300);
-          
-          const rawPredictions = await localModelRef.current.detect(offscreen);
-          predictionsRef.current = rawPredictions || [];
-          
-          processPredictionsLogs(rawPredictions || []);
-        }
+        processPredictionsLogs(rawPredictions || []);
       } catch (e) {
         console.error("Tensorflow inference processing crashed: ", e);
       } finally {
@@ -353,9 +272,9 @@ export default function Scanner() {
     }
 
     // Map the latest out-of-band coordinates to current 60fps canvas size and draw
-    if (canvas.width > 0 && canvas.height > 0) {
-      const scaleX = canvas.width / 300;
-      const scaleY = canvas.height / 300;
+    if (canvas.width > 0 && canvas.height > 0 && video.videoWidth > 0 && video.videoHeight > 0) {
+      const scaleX = canvas.width / video.videoWidth;
+      const scaleY = canvas.height / video.videoHeight;
       const rawPredictions = predictionsRef.current || [];
 
       const scaled = rawPredictions.map(pred => ({
@@ -583,14 +502,14 @@ export default function Scanner() {
             <div className="flex gap-4">
               <button 
                 onClick={toggleScanner}
-                className="px-5 py-2 bg-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-white/90 transition-all border border-white flex items-center gap-2"
+                className="px-5 py-2 bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 transition-all border border-white flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
                 RETRY PERMISSION
               </button>
               <button 
                 onClick={() => setPermissionError(null)}
-                className="px-4 py-2 border border-white/20 hover:border-white/40 text-gray-300 font-mono text-xs rounded-lg transition-colors"
+                className="px-4 py-2 border border-white/20 hover:border-white/40 text-gray-300 font-mono text-xs rounded-xl transition-colors"
               >
                 DISMISS
               </button>
@@ -635,48 +554,7 @@ export default function Scanner() {
         </div>
       )}
 
-      {/* Visual snaps slider on outer screen rim for match threshold calibration */}
-      {isScanning && hudVisible && (
-        <div className="fixed right-4 md:right-8 top-[32%] z-40 flex flex-col items-center bg-[#0C0C0C]/90 border border-white/15 rounded-2xl px-2.5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.9)] max-w-[60px] backdrop-blur-md">
-          <div className="text-[8px] font-mono font-bold text-center text-neon-green tracking-widest leading-none mb-1.5 uppercase">
-            CONFIDENCE
-          </div>
-          <div className="text-[12px] font-mono font-black text-white text-center mb-4">
-            {threshold}%
-          </div>
-          <div className="h-44 flex items-center justify-center relative">
-            {/* Visual background ticks / snapping marks */}
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-white/10 flex flex-col justify-between py-1 pointer-events-none">
-              <span className="w-2 h-[2px] bg-white/20"></span>
-              <span className="w-2 h-[2px] bg-white/20"></span>
-              <span className="w-2 h-[2px] bg-white/20"></span>
-              <span className="w-2 h-[2px] bg-white/20"></span>
-              <span className="w-2 h-[2px] bg-white/20"></span>
-            </div>
-            <input 
-              type="range" 
-              min="15" 
-              max="95" 
-              step="10" // Physical granular snapping step
-              value={threshold} 
-              onChange={(e) => setThreshold(Number(e.target.value))}
-              className="accent-neon-green cursor-ns-resize"
-              style={{
-                writingMode: 'vertical-lr',
-                WebkitAppearance: 'slider-vertical',
-                height: '154px',
-                width: '16px'
-              }}
-              title="Confidence Snapping Slider"
-            />
-          </div>
-          <div className="flex flex-col gap-1 items-center justify-center mt-4 border-t border-white/10 pt-2.5 text-[8px] font-mono text-gray-500 font-bold select-none leading-none">
-            <span className={threshold >= 75 ? 'text-neon-green font-black font-mono' : ''}>HIGH</span>
-            <span className={threshold >= 45 && threshold < 75 ? 'text-neon-green font-black font-mono' : ''}>MID</span>
-            <span className={threshold < 45 ? 'text-neon-green font-black font-mono' : ''}>LOW</span>
-          </div>
-        </div>
-      )}
+
 
       {/* Quick Settings Gear Controller: Beautiful buttons floating in Top Right */}
       {isScanning && (
@@ -684,7 +562,7 @@ export default function Scanner() {
           {/* Complete HUD Toggle */}
           <button 
             onClick={() => setHudVisible(!hudVisible)}
-            className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${hudVisible ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-off-white border-white/15 hover:text-neon-green hover:border-white/30'}`}
+            className={`p-2.5 glass-panel border rounded-xl duration-150 cursor-pointer ${hudVisible ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-off-white border-white/15 hover:text-neon-green hover:border-white/30'}`}
             title={hudVisible ? "Hide Overlays" : "Show Overlays"}
           >
             {hudVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -694,7 +572,7 @@ export default function Scanner() {
           {hudVisible && (
             <button 
               onClick={() => setShowControls(!showControls)}
-              className={`p-2.5 glass-panel border rounded-lg duration-150 cursor-pointer ${showControls ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-off-white border-white/15 hover:text-neon-green hover:border-white/30'}`}
+              className={`p-2.5 glass-panel border rounded-xl duration-150 cursor-pointer ${showControls ? 'text-neon-green border-neon-green/35 bg-neon-green/5' : 'text-off-white border-white/15 hover:text-neon-green hover:border-white/30'}`}
               title="Calibration Setup"
             >
               <Settings className="w-4 h-4" />
@@ -713,7 +591,7 @@ export default function Scanner() {
             </span>
             <button 
               onClick={() => setShowLogs(false)}
-              className="text-gray-400 hover:text-white font-mono text-[9px] border border-white/10 px-1.5 py-0.5 rounded cursor-pointer duration-100 uppercase"
+              className="text-gray-400 hover:text-white font-mono text-[9px] border border-white/10 px-1.5 py-0.5 rounded-xl cursor-pointer duration-100 uppercase"
             >
               CLOSE
             </button>
@@ -767,13 +645,13 @@ export default function Scanner() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setModelBase('lite_mobilenet_v2')}
-                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'lite_mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40 font-bold'}`}
+                  className={`py-1.5 text-[10px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${modelBase === 'lite_mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40 font-bold'}`}
                 >
                   Lite V2 (Fast)
                 </button>
                 <button
                   onClick={() => setModelBase('mobilenet_v2')}
-                  className={`py-1.5 text-[10px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${modelBase === 'mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40'}`}
+                  className={`py-1.5 text-[10px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${modelBase === 'mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40'}`}
                 >
                   Standard V2 (Deep)
                 </button>
@@ -794,7 +672,7 @@ export default function Scanner() {
                   <button
                     key={ms}
                     onClick={() => setScanInterval(ms)}
-                    className={`py-1.5 text-[9px] font-mono font-bold rounded duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)]' : 'bg-transparent text-gray-300 border-white/10 hover:border-white/30'}`}
+                    className={`py-1.5 text-[9px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)]' : 'bg-transparent text-gray-300 border-white/10 hover:border-white/30'}`}
                   >
                     {ms === 100 ? '100ms (High)' : ms === 250 ? '250ms (Mid)' : '500ms (Eco)'}
                   </button>
@@ -818,7 +696,7 @@ export default function Scanner() {
                 <button 
                   onClick={() => setZoom(prev => Math.max(1.0, prev - 0.5))}
                   disabled={zoom <= 1.0}
-                  className="p-1 px-2.5 bg-white/5 border border-white/10 hover:border-white/30 rounded text-gray-300 hover:text-white text-xs disabled:opacity-20 cursor-pointer duration-100"
+                  className="p-1 px-2.5 bg-white/5 border border-white/10 hover:border-white/30 rounded-xl text-gray-300 hover:text-white text-xs disabled:opacity-20 cursor-pointer duration-100"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
@@ -834,34 +712,14 @@ export default function Scanner() {
                 <button 
                   onClick={() => setZoom(prev => Math.min(4.0, prev + 0.5))}
                   disabled={zoom >= 4.0}
-                  className="p-1 px-2.5 bg-white/5 border border-white/10 hover:border-white/30 rounded text-gray-300 hover:text-white text-xs disabled:opacity-20 cursor-pointer duration-100"
+                  className="p-1 px-2.5 bg-white/5 border border-white/10 hover:border-white/30 rounded-xl text-gray-300 hover:text-white text-xs disabled:opacity-20 cursor-pointer duration-100"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* MATCH RECON SENSITIVITY (THRESHOLD) */}
-            <div className="flex flex-col space-y-2 border-t border-white/10 pt-3">
-              <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
-                <span className="flex items-center gap-1.5 opacity-80 uppercase font-mono">
-                  <Sliders className="w-3.5 h-3.5 opacity-80" />
-                  MATCH THRESHOLD
-                </span>
-                <span className="text-neon-green font-bold font-mono">{threshold}%</span>
-              </div>
-              <p className="text-[10px] text-gray-400 leading-snug font-sans">
-                Lower standard threshold limits (e.g., 25%–35%) to trigger matches for shadows or edge objects like pillows at tight angles.
-              </p>
-              <input 
-                type="range" 
-                min="15" 
-                max="95" 
-                value={threshold} 
-                onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-full h-3 cursor-pointer bg-white/10 accent-neon-green"
-              />
-            </div>
+
 
             {/* DUAL CAMERA SECTOR FLIPPER */}
             {(hasMultipleCameras || (typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))) && (
@@ -872,7 +730,7 @@ export default function Scanner() {
                 </span>
                 <button 
                   onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
-                  className="px-3 py-1.5 glass-panel text-off-white hover:text-white border border-white/20 hover:border-white/40 text-[10px] font-bold rounded duration-150 uppercase cursor-pointer tracking-wider"
+                  className="px-3 py-1.5 glass-panel text-off-white hover:text-white border border-white/20 hover:border-white/40 text-[10px] font-bold rounded-xl duration-150 uppercase cursor-pointer tracking-wider"
                 >
                   {facingMode === 'user' ? 'FRONT CAMERA' : 'REAR CAMERA'}
                 </button>
@@ -922,7 +780,7 @@ export default function Scanner() {
             <div className="border-t border-white/10 pt-3">
               <button 
                 onClick={captureScreenshot}
-                className="w-full py-2.5 px-4 shadow-md bg-white text-black font-semibold font-mono text-xs rounded-lg hover:bg-white/90 duration-150 flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer transition-all border border-white"
+                className="w-full py-2.5 px-4 shadow-md bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 duration-150 flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer transition-all border border-white"
               >
                 <Download className="w-4 h-4" />
                 Capture Snapshot
@@ -938,190 +796,14 @@ export default function Scanner() {
           <button 
             onClick={toggleScanner}
             disabled={isLoading}
-            className="px-4 sm:px-5 py-3.5 rounded-full font-mono text-xs font-bold bg-black/90 text-off-white hover:bg-white hover:text-black border border-white/20 hover:border-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group flex-shrink-0"
+            className="w-full px-4 sm:px-5 py-3.5 rounded-xl font-mono text-xs font-bold bg-black/90 text-off-white hover:bg-white hover:text-black border border-white/20 hover:border-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group flex-shrink-0"
           >
             <Square className="w-4 h-4 fill-current text-current" />
-            STOP
-          </button>
-
-          <button 
-            onClick={triggerQuantumScan}
-            disabled={isScanningGemini}
-            className="flex-1 px-4 sm:px-6 py-3.5 rounded-full font-mono text-xs font-bold bg-gradient-to-r from-neon-green to-emerald-500 text-black hover:brightness-110 flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,128,0,0.35)] duration-200 tracking-widest cursor-pointer font-black group"
-          >
-            <Sparkles className={`w-4 h-4 ${isScanningGemini ? 'animate-spin' : 'animate-pulse'}`} />
-            {isScanningGemini ? 'ANALYZING...' : 'QUANTUM DEEP SCAN'}
+            STOP SCANNER
           </button>
         </div>
       )}
 
-      {/* QUANTUM SCAN ACTIVE LOADER OVERLAY */}
-      {isScanningGemini && (
-        <div className="fixed inset-0 z-[120] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md animate-fade-in">
-          <div className="relative w-24 h-24 flex items-center justify-center mb-6">
-            <div className="absolute inset-0 rounded-full border-4 border-neon-green/10 border-t-neon-green animate-spin" />
-            <Sparkles className="w-8 h-8 text-neon-green animate-pulse" />
-          </div>
-          <h3 className="font-mono text-sm font-bold tracking-widest text-off-white mb-2 uppercase font-mono">EMITTING QUANTUM BEAMS</h3>
-          <p className="text-xs text-gray-400 font-sans max-w-xs leading-relaxed animate-pulse">
-            Analyzing target composition, thermal fields, and passive electromagnetic signatures in the cloud...
-          </p>
-        </div>
-      )}
-
-      {/* QUANTUM DEEP SCAN RESULTS MODAL */}
-      {geminiResult && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-lg glass-panel border border-neon-green/30 rounded-2xl p-6 shadow-[0_0_50px_rgba(0,255,0,0.15)] flex flex-col max-h-[90vh] overflow-y-auto custom-scrollbar text-off-white space-y-5" id="quantum-result-panel">
-            {/* Header */}
-            <div className="font-mono text-xs font-bold text-off-white border-b border-white/10 pb-3 flex items-center justify-between tracking-widest">
-              <span className="flex items-center gap-2 text-neon-green font-bold uppercase">
-                <Atom className="w-4 h-4 text-neon-green animate-spin" style={{ animationDuration: '6s' }} />
-                QUANTUM SPECTRUM RESOLVED
-              </span>
-              <button 
-                onClick={() => setGeminiResult(null)}
-                className="text-gray-400 hover:text-white duration-100 cursor-pointer p-1 hover:bg-white/5 rounded-md"
-                title="Dismiss Analysis"
-              >
-                <X className="w-5 h-5 text-off-white" />
-              </button>
-            </div>
-
-            {/* Main Object Header */}
-            <div className="flex flex-col space-y-1">
-              <span className="font-mono text-[9px] text-neon-green font-black tracking-widest uppercase bg-neon-green/10 px-2 py-1 rounded w-max">
-                {geminiResult.sciFiClassification}
-              </span>
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase mt-1">
-                {geminiResult.name}
-              </h2>
-            </div>
-
-            {/* Description */}
-            <div className="bg-white/5 border border-white/5 rounded-xl p-4 space-y-2">
-              <span className="font-mono text-[10px] text-gray-400 font-bold tracking-wider uppercase flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-neon-green" />
-                TACTICAL SCAN SUMMARY
-              </span>
-              <p className="text-sm text-gray-200 leading-relaxed font-sans font-medium">
-                {geminiResult.description}
-              </p>
-            </div>
-
-            {/* Attributes Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {geminiResult.attributes?.map((attr: any, idx: number) => (
-                <div key={idx} className="border border-white/10 bg-black/45 rounded-xl p-3 flex flex-col space-y-1">
-                  <span className="font-mono text-[9px] text-gray-400 uppercase tracking-widest font-bold">
-                    {attr.label}
-                  </span>
-                  <span className="text-xs font-semibold text-white uppercase tracking-wide">
-                    {attr.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Technical Specifications */}
-            <div className="border-t border-white/10 pt-4">
-              <span className="font-mono text-[10px] text-gray-400 font-bold tracking-wider uppercase mb-3 block">
-                DIAGNOSTIC METRICS
-              </span>
-              <div className="grid grid-cols-3 gap-2 text-center bg-black/60 border border-white/5 rounded-xl p-3">
-                <div className="flex flex-col space-y-1">
-                  <Thermometer className="w-4 h-4 text-orange-400 mx-auto" />
-                  <span className="font-mono text-[8px] text-gray-500 uppercase">Temp</span>
-                  <span className="text-xs font-bold text-white font-mono">{geminiResult.technicalSpecs?.temperature}</span>
-                </div>
-                <div className="flex flex-col space-y-1 border-x border-white/10">
-                  <Cpu className="w-4 h-4 text-neon-green mx-auto" />
-                  <span className="font-mono text-[8px] text-gray-500 uppercase">Signature</span>
-                  <span className="text-[10px] font-bold text-white font-mono truncate px-1">{geminiResult.technicalSpecs?.spectralSignature}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <Activity className="w-4 h-4 text-blue-400 mx-auto animate-pulse" />
-                  <span className="font-mono text-[8px] text-gray-500 uppercase">Integrity</span>
-                  <span className="text-xs font-bold text-white font-mono">{geminiResult.technicalSpecs?.integrity}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Trivia / Lore Section */}
-            {geminiResult.trivia && (
-              <div className="border-t border-white/10 pt-4 pb-2">
-                <div className="flex items-start gap-2.5 text-xs text-gray-300 leading-relaxed bg-[#0c0c0c] border border-white/10 rounded-xl p-3.5">
-                  <Sparkles className="w-4 h-4 text-neon-green flex-shrink-0 mt-0.5 animate-pulse" />
-                  <div>
-                    <span className="font-mono text-[9px] text-neon-green font-bold uppercase tracking-widest block mb-1">ANALYZER NOTE</span>
-                    <p className="font-sans italic">{geminiResult.trivia}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer action buttons */}
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setGeminiResult(null)}
-                className="flex-1 py-3 bg-white text-black font-mono text-xs font-bold rounded-xl hover:bg-white/90 duration-150 uppercase tracking-widest cursor-pointer border border-white shadow-[0_4px_12px_rgba(255,255,255,0.15)]"
-              >
-                RETURN TO LENS
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QUANTUM SCAN ERROR MODAL */}
-      {geminiError && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-md glass-panel border border-red-500/30 rounded-2xl p-6 shadow-[0_0_40px_rgba(255,0,0,0.1)] flex flex-col text-off-white space-y-5">
-            {/* Header */}
-            <div className="font-mono text-xs font-bold text-red-400 border-b border-white/10 pb-3 flex items-center justify-between tracking-widest">
-              <span className="flex items-center gap-2 font-bold uppercase">
-                <ShieldAlert className="w-4 h-4 text-red-500" />
-                QUANTUM SCAN FAULT
-              </span>
-              <button 
-                onClick={() => setGeminiError(null)}
-                className="text-gray-400 hover:text-white duration-100 cursor-pointer p-1"
-              >
-                <X className="w-5 h-5 text-off-white" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-white uppercase font-mono">Neural Interface Interrupted</h3>
-              <div className="text-xs text-gray-300 leading-relaxed font-sans space-y-2">
-                {geminiError.includes("GEMINI_API_KEY") ? (
-                  <div>
-                    The quantum scanner requires a secure <strong className="text-neon-green font-mono">GEMINI_API_KEY</strong> secret to connect with the server-side proxy. 
-                    <br /><br />
-                    To resolve this:
-                    <ol className="list-decimal list-inside space-y-2 mt-2 ml-1 text-gray-400 font-sans">
-                      <li>Obtain a free key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-neon-green underline font-semibold">Google AI Studio</a>.</li>
-                      <li>Open the <strong className="text-white">Settings menu</strong> (gear icon) on the top right in the Google AI Studio Build chat UI.</li>
-                      <li>Add an Environment Variable with name <code className="bg-white/10 text-white px-1.5 py-0.5 rounded font-mono text-[11px]">GEMINI_API_KEY</code> and paste your API key as its value.</li>
-                    </ol>
-                  </div>
-                ) : (
-                  <p>{geminiError}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setGeminiError(null)}
-                className="flex-1 py-3 bg-red-950/20 hover:bg-red-900/30 text-red-400 font-mono text-xs font-bold rounded-xl border border-red-500/30 duration-150 uppercase tracking-widest cursor-pointer"
-              >
-                DISMISS DIAGNOSTIC
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
