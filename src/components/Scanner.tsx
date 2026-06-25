@@ -497,7 +497,7 @@ export default function Scanner() {
       <div 
         className="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-[#0C0C0C] transition-all duration-300"
         style={{
-          backgroundImage: !isScanning ? 'linear-gradient(rgba(12, 12, 12, 0.65), rgba(12, 12, 12, 0.75)), url("/patterns_1.jpg")' : 'none',
+          backgroundImage: !isScanning ? 'linear-gradient(rgba(12, 12, 12, 0.35), rgba(12, 12, 12, 0.45)), url("/patterns_1.jpg")' : 'none',
           backgroundRepeat: 'repeat',
           backgroundPosition: 'center',
           backgroundSize: 'cover'
