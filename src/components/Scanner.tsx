@@ -38,9 +38,19 @@ interface LogEntry {
   type: 'detect' | 'init' | 'unidentified' | 'error';
 }
 
+interface Capture {
+  id: string;
+  dataUrl: string;
+  timestamp: number;
+  labels: string[];
+}
+
 export default function Scanner() {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  const [captures, setCaptures] = useState<Capture[]>([]);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   
   const [modelLoaded, setModelLoaded] = useState(false);
   const [modelBase, setModelBase] = useState<'lite_mobilenet_v2' | 'mobilenet_v2'>('lite_mobilenet_v2');
@@ -417,16 +427,43 @@ export default function Scanner() {
     // Draw video frame
     saveCtx.drawImage(video, 0, 0, saveCanvas.width, saveCanvas.height);
 
-    // Draw canvas sketches overlay
-    saveCtx.drawImage(overlayCanvas, 0, 0, saveCanvas.width, saveCanvas.height);
+    // Draw canvas sketches overlay if HUD is visible
+    if (hudVisibleRef.current) {
+      saveCtx.drawImage(overlayCanvas, 0, 0, saveCanvas.width, saveCanvas.height);
+    }
 
     try {
-      const dataUrl = saveCanvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `liny-diagnostic-snap-${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
-      addLog('SNAP-SAVED TO DEVICE STORAGE', 'init');
+      const dataUrl = saveCanvas.toDataURL('image/jpeg', 0.9);
+      
+      const currentLabels = (predictionsRef.current || [])
+        .filter(p => (p.score * 100) >= thresholdRef.current)
+        .map(p => getSciFiLabel(p.class));
+        
+      const uniqueLabels = Array.from(new Set(currentLabels));
+
+      const newCapture: Capture = {
+        id: Date.now().toString(),
+        dataUrl,
+        timestamp: Date.now(),
+        labels: uniqueLabels
+      };
+
+      setCaptures(prev => [newCapture, ...prev]);
+      addLog('SNAPSHOT SAVED TO GALLERY', 'success');
+      
+      // Flash effect
+      const flash = document.createElement('div');
+      flash.className = 'fixed inset-0 bg-white z-[200] opacity-100 pointer-events-none transition-opacity duration-300';
+      document.body.appendChild(flash);
+      
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          flash.classList.add('opacity-0');
+          flash.classList.remove('opacity-100');
+          setTimeout(() => document.body.removeChild(flash), 300);
+        });
+      });
+      
     } catch (e) {
       console.error('Snapshot extraction faulted: ', e);
       addLog('SNAP FAULT: RESOURCE LOCKED', 'error');
@@ -798,35 +835,125 @@ export default function Scanner() {
                 </div>
               </div>
             </div>
-
-            {/* CAPTURE DIAGNOSTIC SNAP ACTIONS */}
-            <div className="border-t border-white/10 pt-3">
-              <button 
-                onClick={captureScreenshot}
-                className="w-full py-2.5 px-4 shadow-md bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 duration-150 flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer transition-all border border-white"
-              >
-                <Download className="w-4 h-4" />
-                Capture Snapshot
-              </button>
-            </div>
           </div>
         </div>
       )}
 
       {/* Floating Low-Profile Start/Stop Trigger Console at Bottom Viewport */}
       {isScanning && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center gap-3 w-full max-w-xs sm:max-w-md px-4">
-          <button 
-            onClick={toggleScanner}
-            disabled={isLoading}
-            className="w-full px-4 sm:px-5 py-3.5 rounded-xl font-mono text-xs font-bold bg-black/90 text-off-white hover:bg-white hover:text-black border border-white/20 hover:border-white flex items-center justify-center gap-2 shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 tracking-widest cursor-pointer group flex-shrink-0"
-          >
-            <Square className="w-4 h-4 fill-current text-current" />
-            STOP SCANNER
-          </button>
+        <div className="fixed bottom-8 left-0 right-0 z-40 flex flex-col items-center justify-center px-4">
+          <div className="flex items-center justify-between w-full max-w-[320px] sm:max-w-[380px] mx-auto bg-black/40 backdrop-blur-md p-2 rounded-[2rem] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            
+            {/* Gallery Thumbnail */}
+            <div 
+              onClick={() => setIsGalleryOpen(true)}
+              className="w-14 h-14 rounded-full overflow-hidden bg-black/80 border-2 border-white/20 cursor-pointer hover:border-white transition-colors flex-shrink-0 relative group shadow-inner"
+            >
+              {captures.length > 0 ? (
+                <>
+                  <img src={captures[0].dataUrl} alt="Recent capture" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <List className="w-5 h-5 text-white" />
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                   <List className="w-5 h-5 text-white/50" />
+                </div>
+              )}
+            </div>
+
+            {/* Shutter Button */}
+            <button 
+              onClick={captureScreenshot}
+              className="w-[72px] h-[72px] rounded-full bg-transparent border-[4px] border-white/80 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer flex-shrink-0"
+            >
+              <div className="w-[56px] h-[56px] bg-white rounded-full transition-transform active:scale-90 shadow-lg"></div>
+            </button>
+
+            {/* Stop Scanner */}
+            <button 
+              onClick={toggleScanner}
+              disabled={isLoading}
+              className="w-14 h-14 rounded-full bg-black/80 text-off-white hover:bg-white hover:text-black border-2 border-white/20 hover:border-white flex flex-col items-center justify-center shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 cursor-pointer flex-shrink-0"
+              title="Stop Scanner"
+            >
+              <Square className="w-5 h-5 fill-current text-current" />
+            </button>
+          </div>
         </div>
       )}
 
+      {/* Gallery Slide-up Drawer */}
+      <div 
+        className={`fixed inset-x-0 bottom-0 z-50 bg-[#0c0c0c] border-t border-white/10 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isGalleryOpen ? 'translate-y-0' : 'translate-y-full'}`}
+        style={{ height: '88vh' }}
+      >
+        <div className="w-full h-full flex flex-col pt-3 px-5 pb-8 overflow-hidden relative">
+          {/* Drawer handle */}
+          <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-5 cursor-pointer" onClick={() => setIsGalleryOpen(false)} />
+          
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-black text-white tracking-tight uppercase font-mono flex items-center gap-2">
+              <Camera className="w-5 h-5 text-neon-green" />
+              CAPTURE LOG
+            </h2>
+            <button 
+              onClick={() => setIsGalleryOpen(false)}
+              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col pb-6 pr-1">
+            {captures.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
+                <Camera className="w-16 h-16 opacity-20" />
+                <p className="font-mono text-xs tracking-widest">NO CAPTURES DETECTED</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {captures.map(capture => (
+                  <div key={capture.id} className="group relative rounded-xl overflow-hidden border border-white/10 bg-[#151515] aspect-[3/4] shadow-lg">
+                    <img src={capture.dataUrl} alt="Capture" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-3.5">
+                      <div className="text-[10px] font-mono text-white/50 mb-2">
+                        {new Date(capture.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {capture.labels.length > 0 ? capture.labels.slice(0, 3).map((label, idx) => (
+                          <span key={idx} className="px-1.5 py-0.5 bg-neon-green/10 border border-neon-green/30 text-neon-green rounded text-[9px] font-bold font-mono uppercase truncate max-w-full">
+                            {label}
+                          </span>
+                        )) : (
+                          <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 text-white/50 rounded text-[9px] font-bold font-mono uppercase">
+                            NO SUBJECTS
+                          </span>
+                        )}
+                        {capture.labels.length > 3 && (
+                          <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 text-white/50 rounded text-[9px] font-bold font-mono">
+                            +{capture.labels.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Download Button overlay */}
+                    <a 
+                      href={capture.dataUrl} 
+                      download={`liny-${capture.timestamp}.jpg`}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:text-black text-white shadow-lg"
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
