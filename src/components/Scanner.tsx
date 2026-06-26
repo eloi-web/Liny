@@ -969,7 +969,7 @@ export default function Scanner() {
                     <a 
                       href={capture.dataUrl} 
                       download={`liny-${capture.timestamp}.jpg`}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:text-black text-white shadow-lg"
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity hover:bg-white hover:text-black text-white shadow-lg"
                       title="Download"
                     >
                       <Download className="w-4 h-4" />
