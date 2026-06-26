@@ -9,6 +9,8 @@ A real-time object detection progressive web app designed with a clean, high-per
 - **Sketchy Bounding Boxes:** Uses Rough.js to draw hand-drawn, cross-hatched bounding boxes with dynamic styling over identified objects.
 - **Toggleable HUD:** Allows users to hide all overlays and bounding boxes for an immersive, distraction-free view of the camera feed.
 - **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects ("Detected a chair", etc.) as they enter the frame.
+- **Capture Gallery & History:** Take diagnostic snapshots that save directly into an in-app slide-up gallery drawer, complete with timestamps and detected object tags.
+- **Haptic Feedback:** Subtle tactile vibrations utilizing the browser's Haptic API for interactive UI feedback, shutter capture, and new object discovery pulses.
 - **Futuristic UI:** A dark, moody HUD with custom thresholds, rounded-xl interactive buttons, and glassmorphism.
 - **100% Client-Side:** All machine learning processing naturally happens entirely within the browser, ensuring maximum privacy and framerate performance without server round-trips.
 
