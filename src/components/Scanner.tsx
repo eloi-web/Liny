@@ -30,6 +30,16 @@ import {
 import { drawSketchyBoxes, Prediction, getSciFiLabel } from '../utils/draw';
 import { speakObject } from '../utils/speech';
 
+const vibrate = (pattern: number | number[]) => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {
+      // Ignore vibration errors on unsupported environments
+    }
+  }
+};
+
 interface LogEntry {
   id: number;
   time: string;
@@ -105,6 +115,18 @@ export default function Scanner() {
   useEffect(() => { voiceEnabledRef.current = voiceEnabled; }, [voiceEnabled]);
   useEffect(() => { scanIntervalRef.current = scanInterval; }, [scanInterval]);
 
+  // Global haptic feedback for all interactive elements
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('button') || target.closest('.cursor-pointer') || target.closest('input[type="range"]')) {
+        vibrate(10); // Light tick for interactions
+      }
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, []);
+
   // Handle document.body class to cleanly fade out the header and avoid overlapping z-index bugs on mobile
   useEffect(() => {
     if (showControls) {
@@ -151,6 +173,10 @@ export default function Scanner() {
       speakObject(pred.class, voiceEnabledRef.current, `Target identified: ${friendlyLabel}`);
       
       const lastLog = lastLogTime.current[pred.class] || 0;
+      if (lastLog === 0) {
+        vibrate(30); // Subtle pulse for new object
+      }
+      
       if (now - lastLog > 3000) {
         const displayLogText = `${friendlyLabel.toUpperCase()} IDENTIFIED`;
         addLog(displayLogText, 'detect', Math.round(pred.score * 100));
@@ -414,6 +440,7 @@ export default function Scanner() {
   };
 
   const captureScreenshot = () => {
+    vibrate([50, 50, 50]); // Double buzz on capture
     if (!webcamRef.current || !webcamRef.current.video || !canvasRef.current) return;
     const video = webcamRef.current.video;
     const overlayCanvas = canvasRef.current;
