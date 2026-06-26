@@ -87,6 +87,10 @@ export default function Scanner() {
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionsRef = useRef<Prediction[]>([]);
 
+  // HUD Visible Ref
+  const hudVisibleRef = useRef(true);
+  useEffect(() => { hudVisibleRef.current = hudVisible; }, [hudVisible]);
+
   // Real-time synchronization of state pointers with active loop refs:
   useEffect(() => { voiceEnabledRef.current = voiceEnabled; }, [voiceEnabled]);
   useEffect(() => { scanIntervalRef.current = scanInterval; }, [scanInterval]);
@@ -301,7 +305,13 @@ export default function Scanner() {
       }));
 
       const filtered = scaled.filter(p => (p.score * 100) >= thresholdRef.current);
-      drawSketchyBoxes(canvas, filtered);
+      
+      if (hudVisibleRef.current) {
+        drawSketchyBoxes(canvas, filtered);
+      } else {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     }
     
     if (loopActive.current) {
