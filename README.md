@@ -1,14 +1,16 @@
 # Liny
 
-A real-time object detection progressive web app designed with a "Cyber-Detective" interface. Point your camera at anything, and watch it get sketched in real-time.
+A real-time object detection progressive web app designed with a clean, high-performance "Cyber-Detective" interface. Point your camera at anything, and watch it get recognized and sketched in real-time.
 
 ## Features
 
 - **Real-Time Detection:** Uses TensorFlow.js and the pre-trained COCO-SSD (`lite_mobilenet_v2`) model for fast, local object detection.
+- **Mobile Optimized Inference:** Employs a custom offscreen canvas downsampling matrix (300x300) before tensor operations, ensuring lag-free high-FPS scanning on mobile devices.
 - **Sketchy Bounding Boxes:** Uses Rough.js to draw hand-drawn, cross-hatched bounding boxes with dynamic styling over identified objects.
+- **Toggleable HUD:** Allows users to hide all overlays and bounding boxes for an immersive, distraction-free view of the camera feed.
 - **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects ("Detected a chair", etc.) as they enter the frame.
-- **Glitch & Scanline UI:** A dark, moody, futuristic HUD with scanlines, interactive log views, custom thresholds, and glassmorphism.
-- **Client-Side Processing:** All machine learning processing naturally happens entirely within the browser, avoiding round-trips to the server for maximum privacy and framerate performance.
+- **Futuristic UI:** A dark, moody HUD with custom thresholds, rounded-xl interactive buttons, and glassmorphism.
+- **100% Client-Side:** All machine learning processing naturally happens entirely within the browser, ensuring maximum privacy and framerate performance without server round-trips.
 
 ## Tech Stack
 
