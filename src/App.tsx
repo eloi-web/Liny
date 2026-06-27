@@ -18,7 +18,7 @@ export default function App() {
         {/* Floating Action Button Capsule */}
         <div className="flex items-center pointer-events-auto">
           <a 
-            href="https://github.com/eloi-web/Liny" 
+            href="https://github.com/eloi-web/liny" 
             target="_blank" 
             rel="noopener noreferrer"
             className="p-2.5 rounded-full border border-yellow-white/10 bg-black/50 hover:bg-black/75 hover:border-yellow-white/30 text-yellow-white hover:text-neon-green backdrop-blur-md transition-all flex items-center justify-center group shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
