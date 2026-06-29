@@ -49,3 +49,10 @@ You can preview the built static output with:
 ```bash
 npm run preview
 ```
+
+## Progress
+
+This project is still under experiment because of the following points:
+- **Lagging:** This app lags on the phone when using big modals, which means only small modals are only available.
+- **Modal Limits:** The available modal is pre-trained, so it has limited objects to recognize, but they are other robust options to choose from but the device can lag or take a while to recognize something based on a device.
+
