@@ -74,6 +74,7 @@ export default function Scanner() {
     type: 'init'
   }]);
   const [isLoading, setIsLoading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
@@ -198,7 +199,20 @@ export default function Scanner() {
       const { loadDetectorModel } = await import('../utils/detector');
       
       addLog('DOWNLOADING ZERO-SHOT TRANSFORMER WEIGHTS...', 'init');
-      const loadedModel = await loadDetectorModel();
+      setDownloadProgress(0);
+      const loadedModel = await loadDetectorModel((progress) => {
+        if (progress.status === 'downloading') {
+          // Add up progress logic or just show the latest progress
+        } else if (progress.status === 'progress') {
+          if (progress.progress !== undefined) {
+             setDownloadProgress(Math.round(progress.progress));
+          }
+        } else if (progress.status === 'done') {
+          addLog(`DOWNLOADED: ${progress.file}`, 'success');
+        } else if (progress.status === 'initiate') {
+          addLog(`INITIATING: ${progress.file}`, 'init');
+        }
+      });
       
       localModelRef.current = loadedModel;
       setModelLoaded(true);
@@ -554,6 +568,14 @@ export default function Scanner() {
         <div className="absolute inset-0 z-40 bg-black/90 flex flex-col items-center justify-center backdrop-blur-sm">
           <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
           <p className="font-mono text-gray-400 text-xs tracking-widest animate-pulse uppercase">CONFIGURING neural PIPELINE...</p>
+          {downloadProgress > 0 && downloadProgress < 100 && (
+            <div className="w-64 mt-4">
+              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-white transition-all duration-300" style={{ width: `${downloadProgress}%` }} />
+              </div>
+              <p className="font-mono text-[10px] text-gray-500 text-center mt-2">DOWNLOADING MODEL WEIGHTS: {downloadProgress}%</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -652,7 +674,7 @@ export default function Scanner() {
 
       {/* Left Aligned Collapsible Log Panel */}
       {isScanning && hudVisible && showLogs && (
-        <div className="fixed bottom-36 md:bottom-28 left-4 md:left-8 w-72 md:w-80 h-56 glass-panel z-40 p-4 overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(0,0,0,0.8)] rounded-xl border border-white/10 transition-all duration-300">
+        <div className="fixed bottom-24 md:bottom-8 left-4 md:left-8 w-72 md:w-80 h-48 md:h-56 glass-panel z-40 p-4 overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(0,0,0,0.8)] rounded-xl border border-white/10 transition-all duration-300">
           <div className="font-mono text-xs font-bold text-off-white border-b border-white/10 pb-2 mb-3 tracking-widest flex items-center justify-between">
             <span className="flex items-center gap-2 font-bold uppercase tracking-wider text-off-white">
               <List className="w-3.5 h-3.5 opacity-80" />
@@ -665,7 +687,7 @@ export default function Scanner() {
               CLOSE
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto font-sans text-sm text-gray-200 pr-1 custom-scrollbar flex flex-col-reverse gap-2">
+          <div className="flex-1 overflow-y-auto font-sans text-sm text-gray-200 pr-1 custom-scrollbar flex flex-col gap-2">
             {logs.map((log) => (
               <div key={log.id} className="flex justify-between items-start text-xs md:text-sm py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100">
                 <span className="text-gray-500 font-mono flex-shrink-0 mr-2 text-[10px]">[{log.time}]</span>

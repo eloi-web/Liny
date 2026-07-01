@@ -3,7 +3,9 @@ let resolveModelLoad: ((value: any) => void) | null = null;
 let rejectModelLoad: ((reason: any) => void) | null = null;
 let resolveDetect: ((value: any) => void) | null = null;
 
-export async function loadDetectorModel() {
+let onProgressCallback: ((progress: any) => void) | null = null;
+
+export async function loadDetectorModel(onProgress?: (progress: any) => void) {
   if (!worker) {
     worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
     
@@ -14,6 +16,8 @@ export async function loadDetectorModel() {
         if (resolveModelLoad) resolveModelLoad(true);
       } else if (type === 'MODEL_ERROR') {
         if (rejectModelLoad) rejectModelLoad(new Error(payload));
+      } else if (type === 'MODEL_PROGRESS') {
+        if (onProgressCallback) onProgressCallback(payload);
       } else if (type === 'DETECT_RESULT') {
         if (resolveDetect) {
           resolveDetect(payload);
@@ -28,6 +32,8 @@ export async function loadDetectorModel() {
       }
     };
   }
+
+  onProgressCallback = onProgress || null;
 
   return new Promise((resolve, reject) => {
     resolveModelLoad = resolve;

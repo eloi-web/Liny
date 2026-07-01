@@ -21,7 +21,10 @@ self.onmessage = async (event) => {
       if (!detectorPipeline) {
         detectorPipeline = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
           device: 'wasm',
-          dtype: 'q8'
+          dtype: 'q8',
+          progress_callback: (progress: any) => {
+            self.postMessage({ type: 'MODEL_PROGRESS', payload: progress });
+          }
         });
       }
       self.postMessage({ type: 'MODEL_LOADED', payload: true });
