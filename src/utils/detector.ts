@@ -51,7 +51,7 @@ export async function detectObjects(imageSource: any, threshold: number = 0.1) {
     worker!.postMessage({ 
       type: 'DETECT', 
       payload: { 
-        image: imageSource.toDataURL(), 
+        image: imageSource.toDataURL('image/jpeg', 0.8), 
         threshold 
       } 
     });

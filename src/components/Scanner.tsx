@@ -238,18 +238,31 @@ export default function Scanner() {
         inferenceBusyRef.current = true;
         const video = webcam.video;
         
-        // Downsample to a fast, clean 300x300 matrix to prevent mobile lag
         if (!offscreenCanvasRef.current) {
           offscreenCanvasRef.current = document.createElement('canvas');
-          offscreenCanvasRef.current.width = 300;
-          offscreenCanvasRef.current.height = 300;
+        }
+        
+        const MAX_DIM = 640;
+        let targetWidth = video.videoWidth;
+        let targetHeight = video.videoHeight;
+        
+        if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
+          if (targetWidth > targetHeight) {
+            targetHeight = Math.round((targetHeight / targetWidth) * MAX_DIM);
+            targetWidth = MAX_DIM;
+          } else {
+            targetWidth = Math.round((targetWidth / targetHeight) * MAX_DIM);
+            targetHeight = MAX_DIM;
+          }
         }
         
         const offscreen = offscreenCanvasRef.current;
+        offscreen.width = targetWidth;
+        offscreen.height = targetHeight;
+        
         const octx = offscreen.getContext('2d');
         if (octx) {
-          // Squish image into 300x300 matrix to perfectly match the scale-back calculation
-          octx.drawImage(video, 0, 0, 300, 300);
+          octx.drawImage(video, 0, 0, targetWidth, targetHeight);
           
           const { detectObjects } = await import('../utils/detector');
           const rawPredictions = await detectObjects(offscreenCanvasRef.current, thresholdRef.current / 100);
@@ -321,9 +334,10 @@ export default function Scanner() {
     }
 
     // Map the latest out-of-band coordinates to current 60fps canvas size and draw
-    if (canvas.width > 0 && canvas.height > 0) {
-      const scaleX = canvas.width / 300;
-      const scaleY = canvas.height / 300;
+    const offscreen = offscreenCanvasRef.current;
+    if (canvas.width > 0 && canvas.height > 0 && offscreen && offscreen.width > 0) {
+      const scaleX = canvas.width / offscreen.width;
+      const scaleY = canvas.height / offscreen.height;
       const rawPredictions = predictionsRef.current || [];
 
       const scaled = rawPredictions.map(pred => ({

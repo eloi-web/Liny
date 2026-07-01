@@ -20,8 +20,6 @@ self.onmessage = async (event) => {
     try {
       if (!detectorPipeline) {
         detectorPipeline = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
-          device: 'wasm',
-          dtype: 'q8',
           progress_callback: (progress: any) => {
             self.postMessage({ type: 'MODEL_PROGRESS', payload: progress });
           }
@@ -38,10 +36,13 @@ self.onmessage = async (event) => {
         return;
       }
       
-      const { image, threshold } = payload;
+      const { image } = payload;
       
-      const result = await detectorPipeline(image, { threshold });
+      console.log('Worker running detection...');
+      const result = await detectorPipeline(image, { threshold: 0.1 });
       
+      console.log('Worker DETECT result:', result);
+
       const mapped = result.map((item: any) => ({
         class: item.label,
         score: item.score,
