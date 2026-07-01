@@ -203,7 +203,7 @@ export default function Scanner() {
       localModelRef.current = loadedModel;
       setModelLoaded(true);
       setIsLoading(false);
-      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [OWL-ViT ZERO-SHOT]`, 'init');
+      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [DETR RESNET-50]`, 'init');
     } catch (err: any) {
       console.error('Transformers model load faulted:', err);
       addLog(`NEURAL COOLDOWN INITIATED: GRID INITIALIZATION FAULT - ${err.message || String(err)}`, 'error');
@@ -706,10 +706,10 @@ export default function Scanner() {
             <div className="flex flex-col space-y-2">
               <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="opacity-80 uppercase font-mono">Detection Pipeline</span>
-                <span className="text-neon-green font-bold uppercase font-mono">OWL-ViT ZERO-SHOT</span>
+                <span className="text-neon-green font-bold uppercase font-mono">DETR RESNET-50</span>
               </div>
               <p className="text-[10px] text-gray-400 leading-snug font-sans">
-                Currently running open-vocabulary transformer for universal room detection without limiting constraints to standard COCO labels.
+                Currently running Hugging Face Transformers DETR ResNet-50.
               </p>
             </div>
 

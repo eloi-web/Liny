@@ -4,9 +4,9 @@ A real-time object detection progressive web app designed with a clean, high-per
 
 ## Features
 
-- **Real-Time Detection:** Uses Transformers.js for open-vocabulary zero-shot object detection directly within the browser.
+- **Real-Time Detection:** Uses Transformers.js for DETR ResNet-50 object detection directly within the browser.
 - **Mobile Optimized Inference:** Employs a custom offscreen canvas downsampling matrix (300x300) before tensor operations, ensuring lag-free high-FPS scanning on mobile devices.
-- **Zero-Shot Object Detection:** Utilizes the powerful `OWL-ViT` zero-shot transformer model via Hugging Face (`@huggingface/transformers`) to detect an open-vocabulary of objects, bypassing the strict 80-class limit of standard COCO models.
+- **Transformer Object Detection:** Utilizes the powerful `DETR ResNet-50` transformer model via Hugging Face (`@huggingface/transformers`) to detect 90+ classes of objects with significantly higher accuracy than standard SSD models.
 - **Sketchy Red Bounding Boxes:** Uses Rough.js to draw intense, hand-drawn red sketchy bounding boxes with dynamic styling over identified objects, capturing an artistic chaotic vibe.
 - **Toggleable HUD:** Allows users to hide all overlays and bounding boxes for an immersive, distraction-free view of the camera feed.
 - **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects ("Detected a chair", etc.) as they enter the frame.
