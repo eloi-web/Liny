@@ -4,22 +4,15 @@ env.allowLocalModels = false;
 
 let detectorPipeline: any = null;
 
-const CANDIDATE_LABELS = [
-  'person', 'computer', 'laptop', 'phone', 'charger', 'bicycle', 'flower', 
-  'door', 'window', 'desk', 'chair', 'bed', 'tv', 'book', 'bottle', 
-  'cup', 'backpack', 'shoes', 'plant', 'wall', 'car', 'keyboard', 'mouse',
-  'poster', 'painting', 'frame', 'watch', 'headphones', 'glasses', 'mug', 
-  'bag', 'cabinet', 'shelf', 'pillow', 'blanket', 'clock', 'mirror', 
-  'light', 'lamp', 'speaker', 'rug', 'box', 'pen', 'pencil', 'notebook'
-];
-
 self.onmessage = async (event) => {
   const { type, payload } = event.data;
 
   if (type === 'LOAD_MODEL') {
     try {
       if (!detectorPipeline) {
-        detectorPipeline = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
+        detectorPipeline = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', {
+          device: 'wasm',
+          dtype: 'q8',
           progress_callback: (progress: any) => {
             self.postMessage({ type: 'MODEL_PROGRESS', payload: progress });
           }
@@ -38,16 +31,21 @@ self.onmessage = async (event) => {
       
       const { image } = payload;
       
-      console.log('Worker running detection...');
-      const result = await detectorPipeline(image, { threshold: 0.1 });
+      console.log('Worker running segmentation...');
+      const result = await detectorPipeline(image);
       
-      console.log('Worker DETECT result:', result);
-
-      const mapped = result.map((item: any) => ({
-        class: item.label,
-        score: item.score,
-        bbox: [item.box.xmin, item.box.ymin, item.box.xmax - item.box.xmin, item.box.ymax - item.box.ymin]
-      }));
+      // result is array of { label, score, mask: RawImage }
+      const mapped = result.map((item: any) => {
+        return {
+          class: item.label,
+          score: item.score || 1.0,
+          mask: {
+            width: item.mask.width,
+            height: item.mask.height,
+            data: item.mask.data
+          }
+        };
+      });
       
       self.postMessage({ type: 'DETECT_RESULT', payload: mapped });
     } catch (error: any) {
@@ -55,3 +53,4 @@ self.onmessage = async (event) => {
     }
   }
 };
+

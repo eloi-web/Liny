@@ -217,7 +217,7 @@ export default function Scanner() {
       localModelRef.current = loadedModel;
       setModelLoaded(true);
       setIsLoading(false);
-      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [DETR RESNET-50]`, 'init');
+      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [SEGFORMER B0]`, 'init');
     } catch (err: any) {
       console.error('Transformers model load faulted:', err);
       addLog(`NEURAL COOLDOWN INITIATED: GRID INITIALIZATION FAULT - ${err.message || String(err)}`, 'error');
@@ -340,15 +340,24 @@ export default function Scanner() {
       const scaleY = canvas.height / offscreen.height;
       const rawPredictions = predictionsRef.current || [];
 
-      const scaled = rawPredictions.map(pred => ({
-        ...pred,
-        bbox: [
-          pred.bbox[0] * scaleX,
-          pred.bbox[1] * scaleY,
-          pred.bbox[2] * scaleX,
-          pred.bbox[3] * scaleY
-        ] as [number, number, number, number]
-      }));
+      const scaled = rawPredictions.map(pred => {
+        let scaledBbox: [number, number, number, number] | undefined = undefined;
+        if (pred.bbox) {
+          scaledBbox = [
+            pred.bbox[0] * scaleX,
+            pred.bbox[1] * scaleY,
+            pred.bbox[2] * scaleX,
+            pred.bbox[3] * scaleY
+          ];
+        }
+        
+        return {
+          ...pred,
+          bbox: scaledBbox,
+          scaleX,
+          scaleY
+        };
+      });
 
       const filtered = scaled.filter(p => (p.score * 100) >= thresholdRef.current);
       
@@ -742,10 +751,10 @@ export default function Scanner() {
             <div className="flex flex-col space-y-2">
               <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="opacity-80 uppercase font-mono">Detection Pipeline</span>
-                <span className="text-neon-green font-bold uppercase font-mono">DETR RESNET-50</span>
+                <span className="text-neon-green font-bold uppercase font-mono">SEGFORMER B0</span>
               </div>
               <p className="text-[10px] text-gray-400 leading-snug font-sans">
-                Currently running Hugging Face Transformers DETR ResNet-50.
+                Currently running Hugging Face Transformers SegFormer B0 for Image Segmentation.
               </p>
             </div>
 
