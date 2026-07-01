@@ -15,7 +15,9 @@ const CANDIDATE_LABELS = [
 
 export async function loadDetectorModel() {
   if (!detectorPipeline) {
-    detectorPipeline = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32');
+    detectorPipeline = await pipeline('zero-shot-object-detection', 'Xenova/owlvit-base-patch32', {
+      device: 'wasm'
+    });
   }
   return detectorPipeline;
 }

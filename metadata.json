@@ -2,4 +2,5 @@
   "name": "Object Scanner",
   "description": "Real-time client-side object detection using sketchy hand-drawn boxes and optional voice synthesis.",
   "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

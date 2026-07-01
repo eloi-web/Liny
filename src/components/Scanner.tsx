@@ -45,7 +45,7 @@ interface LogEntry {
   time: string;
   text: string;
   confidence?: number;
-  type: 'detect' | 'init' | 'unidentified' | 'error';
+  type: 'detect' | 'init' | 'unidentified' | 'error' | 'success';
 }
 
 interface Capture {
@@ -492,7 +492,7 @@ export default function Scanner() {
         }}
       >
         {!isScanning && !isLoading && (
-          <div className="max-w-md p-8 border border-white/10 glass-panel rounded-2xl flex flex-col items-center shadow-[0_8px_32px_rgba(0,0,0,0.7)] backdrop-blur-md">
+          <div className="max-w-md p-8 border border-white/10 glass-panel rounded-2xl flex flex-col items-center shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-5 text-off-white animate-pulse border border-white/5">
               <CameraOff className="w-7 h-7 opacity-70 text-neon-green" />
             </div>
@@ -669,7 +669,7 @@ export default function Scanner() {
             {logs.map((log) => (
               <div key={log.id} className="flex justify-between items-start text-xs md:text-sm py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100">
                 <span className="text-gray-500 font-mono flex-shrink-0 mr-2 text-[10px]">[{log.time}]</span>
-                <span className={`flex-1 break-words font-bold uppercase tracking-wide ${log.type === 'init' ? 'text-gray-400 font-mono text-xs normal-case' : log.type === 'error' ? 'text-red-400 font-bold' : 'text-gray-100'}`}>
+                <span className={`flex-1 break-words font-bold uppercase tracking-wide ${log.type === 'init' ? 'text-gray-400 font-mono text-xs normal-case' : log.type === 'error' ? 'text-red-400 font-bold' : log.type === 'success' ? 'text-neon-green font-bold' : 'text-gray-100'}`}>
                   {log.text}
                 </span>
                 {log.confidence !== undefined && (
@@ -837,7 +837,7 @@ export default function Scanner() {
       {/* Floating Low-Profile Start/Stop Trigger Console at Bottom Viewport */}
       {isScanning && (
         <div className="fixed bottom-8 left-0 right-0 z-40 flex flex-col items-center justify-center px-4">
-          <div className="flex items-center justify-between w-full max-w-[320px] sm:max-w-[380px] mx-auto bg-black/40 backdrop-blur-md p-2 rounded-[2rem] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between w-full max-w-[320px] sm:max-w-[380px] mx-auto glass-panel p-2 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
             
             {/* Gallery Thumbnail */}
             <div 
