@@ -143,47 +143,48 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
 
     const isLockingInProgress = isNewLockOn || age < 500;
 
-    // A. Main Interactive Target Frame - Clean white tones instead of green
+    // A. Main Interactive Target Frame - Red sketchy lines like the reference
     rc.rectangle(x, y, width, height, {
-      stroke: '#FFFFFF', // High contrast clean white lines
-      strokeWidth: isLockingInProgress ? 3 : 2,
-      roughness: isLockingInProgress ? 0.6 : 1.4, // Precise & clean
-      fill: isLockingInProgress ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-      fillStyle: 'cross-hatch',
+      stroke: '#FF0000', // Intense red lines
+      strokeWidth: isLockingInProgress ? 4 : 2.5,
+      roughness: isLockingInProgress ? 2.5 : 3.5, // Much more sketchy and messy
+      fill: isLockingInProgress ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 0, 0, 0.05)',
+      fillStyle: 'zigzag', // Adds to the chaotic sketchy feel
+      bowing: 2, // Curve the lines more for hand-drawn look
     });
     
     // B. Context-aware sci-fi immersive label translations
     const sciFiLabel = getSciFiLabel(pred.class);
     const labelText = `${sciFiLabel} [${Math.round(pred.score * 100)}%]`;
     
-    ctx.font = 'bold 10px "JetBrains Mono", monospace';
+    ctx.font = 'bold 12px "JetBrains Mono", monospace';
     const textWidth = ctx.measureText(labelText).width;
     
     // UI Label Box Frame
-    ctx.fillStyle = '#0C0C0C';
-    ctx.fillRect(x - 2, y - 24, textWidth + 12, 18);
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x - 2, y - 24, textWidth + 12, 18);
+    ctx.fillStyle = '#000000'; // Pure black background for label
+    ctx.fillRect(x - 2, y - 24, textWidth + 12, 20);
+    ctx.strokeStyle = '#FF0000'; // Red border
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 2, y - 24, textWidth + 12, 20);
     
     // Label String Text placement
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(labelText, x + 4, y - 11);
+    ctx.fillStyle = '#FFFFFF'; // White text
+    ctx.fillText(labelText, x + 4, y - 10);
     
     // C. Static Corner bracket decals
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#FF0000'; // Red corner brackets
     // Top-Left corner bracket
-    ctx.fillRect(x - 3, y - 3, 12, 2);
-    ctx.fillRect(x - 3, y - 3, 2, 12);
+    ctx.fillRect(x - 3, y - 3, 16, 3);
+    ctx.fillRect(x - 3, y - 3, 3, 16);
     // Top-Right corner bracket
-    ctx.fillRect(x + width - 9, y - 3, 12, 2);
-    ctx.fillRect(x + width - 1, y - 3, 2, 12);
+    ctx.fillRect(x + width - 13, y - 3, 16, 3);
+    ctx.fillRect(x + width - 0, y - 3, 3, 16);
     // Bottom-Left corner bracket
-    ctx.fillRect(x - 3, y + height - 1, 12, 2);
-    ctx.fillRect(x - 3, y + height - 11, 2, 12);
+    ctx.fillRect(x - 3, y + height - 0, 16, 3);
+    ctx.fillRect(x - 3, y + height - 13, 3, 16);
     // Bottom-Right corner bracket
-    ctx.fillRect(x + width - 9, y + height - 1, 12, 2);
-    ctx.fillRect(x + width - 1, y + height - 11, 2, 12);
+    ctx.fillRect(x + width - 13, y + height - 0, 16, 3);
+    ctx.fillRect(x + width - 0, y + height - 13, 3, 16);
 
     // D. Radiating "Neural Lock-on" Vector Lines Animation
     if (isLockingInProgress) {
@@ -192,9 +193,9 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
       const radialOffset = ageNorm * 26; // Radiating lines travel 26px outwards
       const opacity = 1.0 - ageNorm;     // Fades nicely toward completion
       
-      ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = `rgba(255, 0, 0, ${opacity})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
 
       // Outer projecting target indicators
       ctx.strokeRect(
@@ -205,9 +206,9 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
       );
 
       // Lock status telemetry text inside the box
-      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-      ctx.font = 'bold 9px "JetBrains Mono", monospace';
-      ctx.fillText('[ REURAL SYNAPSE ENGAGED ]', x + 10, y + 20);
+      ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
+      ctx.font = 'bold 10px "JetBrains Mono", monospace';
+      ctx.fillText('[ NEURAL SYNAPSE ENGAGED ]', x + 10, y + 20);
 
       // Micro crosshairs in the absolute center
       const centerX = x + (width / 2);

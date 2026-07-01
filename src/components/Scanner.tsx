@@ -63,7 +63,6 @@ export default function Scanner() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   
   const [modelLoaded, setModelLoaded] = useState(false);
-  const [modelBase, setModelBase] = useState<'lite_mobilenet_v2' | 'mobilenet_v2'>('lite_mobilenet_v2');
   const [scanInterval, setScanInterval] = useState(250); // defaults to 250ms (smooth for mobile)
   
   const [isScanning, setIsScanning] = useState(false);
@@ -185,46 +184,28 @@ export default function Scanner() {
     });
   }, [isScanning, addLog]);
 
-  // Highly robust local TensorFlow dynamic loader. Completely sandboxed iframe immune and doesn't require extra network calls
-  const loadLocalModel = useCallback(async (selectedModelBase: string) => {
+  // Hugging Face zero-shot object detection loader
+  const loadLocalModel = useCallback(async () => {
     if (localModelLoadingRef.current) return;
     localModelLoadingRef.current = true;
     setIsLoading(true);
     setModelLoaded(false);
-    addLog(`INITIALIZING QUANTUM DEEP SCANNER [${selectedModelBase.toUpperCase()}]...`, 'init');
+    addLog(`INITIALIZING QUANTUM ZERO-SHOT DETECTOR...`, 'init');
 
     try {
-      addLog('PREPARING LOCAL NEURAL ENGINE...', 'init');
+      addLog('PREPARING TRANSFORMERS.JS LOCAL ENGINE...', 'init');
       
-      // Lazy load TensorFlow dynamically to split chunk sizes and keep initial bundle tiny
-      const tf = await import('@tensorflow/tfjs');
-      addLog('NEURAL MATRIX INITIALIZED. SEARCHING DISCRETE ACCELERATORS...', 'init');
+      const { loadDetectorModel } = await import('../utils/detector');
       
-      try {
-        await tf.setBackend('webgl');
-        addLog('HARDWARE CO-PROCESSOR ACTIVE: [GPU ACQUISITION OK]', 'init');
-      } catch (webglErr) {
-        console.warn('WebGL hardware backend blocked, reverting to local emulator CPU:', webglErr);
-        try {
-          await tf.setBackend('cpu');
-          addLog('HARDWARE CO-PROCESSOR ACTIVE: [GRID LEVEL EMULATOR BOUND]', 'init');
-        } catch (cpuErr) {
-          console.error('CPU backend bind failed:', cpuErr);
-        }
-      }
-      
-      await tf.ready();
-      
-      addLog('DOWNLOADING MODEL WEIGHTS DIRECTLY TO LOCAL APP MEMORY...', 'init');
-      const cocoSsd = await import('@tensorflow-models/coco-ssd');
-      const loadedModel = await cocoSsd.load({ base: selectedModelBase as any });
+      addLog('DOWNLOADING ZERO-SHOT TRANSFORMER WEIGHTS...', 'init');
+      const loadedModel = await loadDetectorModel();
       
       localModelRef.current = loadedModel;
       setModelLoaded(true);
       setIsLoading(false);
-      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [${selectedModelBase.toUpperCase()}]`, 'init');
+      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [OWL-ViT ZERO-SHOT]`, 'init');
     } catch (err: any) {
-      console.error('Tensorflow model load faulted:', err);
+      console.error('Transformers model load faulted:', err);
       addLog(`NEURAL COOLDOWN INITIATED: GRID INITIALIZATION FAULT - ${err.message || String(err)}`, 'error');
       setIsLoading(false);
       setModelLoaded(false);
@@ -256,13 +237,14 @@ export default function Scanner() {
           // Squish image into 300x300 matrix to perfectly match the scale-back calculation
           octx.drawImage(video, 0, 0, 300, 300);
           
-          const rawPredictions = await localModelRef.current.detect(offscreen);
+          const { detectObjects } = await import('../utils/detector');
+          const rawPredictions = await detectObjects(offscreenCanvasRef.current, thresholdRef.current / 100);
           predictionsRef.current = rawPredictions || [];
           
           processPredictionsLogs(rawPredictions || []);
         }
       } catch (e) {
-        console.error("Tensorflow inference processing crashed: ", e);
+        console.error("Transformers inference processing crashed: ", e);
       } finally {
         inferenceBusyRef.current = false;
       }
@@ -401,9 +383,9 @@ export default function Scanner() {
   // Dynamic hot-swap of SSD model when changed by the user in settings
   useEffect(() => {
     if (isScanning) {
-      loadLocalModel(modelBase);
+      loadLocalModel();
     }
-  }, [modelBase, isScanning, loadLocalModel]);
+  }, [isScanning, loadLocalModel]);
 
   // Clean refs when scan halts or unmounts completely
   useEffect(() => {
@@ -435,7 +417,7 @@ export default function Scanner() {
       setIsScanning(true);
       addLog('REAL-TIME DIAGNOSTICS INITIATED', 'init');
       
-      await loadLocalModel(modelBase);
+      await loadLocalModel();
     }
   };
 
@@ -724,25 +706,11 @@ export default function Scanner() {
             <div className="flex flex-col space-y-2">
               <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="opacity-80 uppercase font-mono">Detection Pipeline</span>
-                <span className="text-neon-green font-bold uppercase font-mono">{modelBase === 'lite_mobilenet_v2' ? 'Lite Speed' : 'High Accuracy'}</span>
+                <span className="text-neon-green font-bold uppercase font-mono">OWL-ViT ZERO-SHOT</span>
               </div>
               <p className="text-[10px] text-gray-400 leading-snug font-sans">
-                Standard V2 captures small and awkward angles better—essential for classifying pillows, tables, couches, and appliances.
+                Currently running open-vocabulary transformer for universal room detection without limiting constraints to standard COCO labels.
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setModelBase('lite_mobilenet_v2')}
-                  className={`py-1.5 text-[10px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${modelBase === 'lite_mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40 font-bold'}`}
-                >
-                  Lite V2 (Fast)
-                </button>
-                <button
-                  onClick={() => setModelBase('mobilenet_v2')}
-                  className={`py-1.5 text-[10px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${modelBase === 'mobilenet_v2' ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)] font-bold' : 'bg-transparent text-gray-300 border-white/20 hover:border-white/40'}`}
-                >
-                  Standard V2 (Deep)
-                </button>
-              </div>
             </div>
 
             {/* SCAN TICK PULSE FREQUENCY */}

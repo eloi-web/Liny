@@ -4,9 +4,10 @@ A real-time object detection progressive web app designed with a clean, high-per
 
 ## Features
 
-- **Real-Time Detection:** Uses TensorFlow.js and the pre-trained COCO-SSD (`lite_mobilenet_v2`) model for fast, local object detection.
+- **Real-Time Detection:** Uses Transformers.js for open-vocabulary zero-shot object detection directly within the browser.
 - **Mobile Optimized Inference:** Employs a custom offscreen canvas downsampling matrix (300x300) before tensor operations, ensuring lag-free high-FPS scanning on mobile devices.
-- **Sketchy Bounding Boxes:** Uses Rough.js to draw hand-drawn, cross-hatched bounding boxes with dynamic styling over identified objects.
+- **Zero-Shot Object Detection:** Utilizes the powerful `OWL-ViT` zero-shot transformer model via Hugging Face (`@huggingface/transformers`) to detect an open-vocabulary of objects, bypassing the strict 80-class limit of standard COCO models.
+- **Sketchy Red Bounding Boxes:** Uses Rough.js to draw intense, hand-drawn red sketchy bounding boxes with dynamic styling over identified objects, capturing an artistic chaotic vibe.
 - **Toggleable HUD:** Allows users to hide all overlays and bounding boxes for an immersive, distraction-free view of the camera feed.
 - **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects ("Detected a chair", etc.) as they enter the frame.
 - **Capture Gallery & History:** Take diagnostic snapshots that save directly into an in-app slide-up gallery drawer, complete with timestamps and detected object tags.
@@ -49,10 +50,3 @@ You can preview the built static output with:
 ```bash
 npm run preview
 ```
-
-## Progress
-
-This project is still under experiment because of the following points:
-- **Lagging:** This app lags on the phone when using big modals, which means only small modals are only available.
-- **Modal Limits:** The available modal is pre-trained, so it has limited objects to recognize, but they are other robust options to choose from but the device can lag or take a while to recognize something based on a device.
-
