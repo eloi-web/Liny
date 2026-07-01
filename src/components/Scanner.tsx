@@ -665,7 +665,7 @@ export default function Scanner() {
               CLOSE
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto font-sans text-sm text-gray-200 space-y-2 pr-1 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto font-sans text-sm text-gray-200 pr-1 custom-scrollbar flex flex-col-reverse gap-2">
             {logs.map((log) => (
               <div key={log.id} className="flex justify-between items-start text-xs md:text-sm py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100">
                 <span className="text-gray-500 font-mono flex-shrink-0 mr-2 text-[10px]">[{log.time}]</span>
