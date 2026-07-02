@@ -10,7 +10,7 @@ self.onmessage = async (event) => {
   if (type === 'LOAD_MODEL') {
     try {
       if (!detectorPipeline) {
-        detectorPipeline = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', {
+        detectorPipeline = await pipeline('object-detection', 'Xenova/detr-resnet-50', {
           device: 'wasm',
           dtype: 'q8',
           progress_callback: (progress: any) => {
@@ -31,26 +31,14 @@ self.onmessage = async (event) => {
       
       const { image } = payload;
       
-      console.log('Worker running segmentation...');
-      const result = await detectorPipeline(image);
+      console.log('Worker running detection...');
+      const result = await detectorPipeline(image, { threshold: 0.1 });
       
-      // result is array of { label, score, mask: RawImage }
-      const mapped = result.map((item: any) => {
-        let maxVal = 0;
-        for (let i = 0; i < Math.min(1000, item.mask.data.length); i++) {
-          if (item.mask.data[i] > maxVal) maxVal = item.mask.data[i];
-        }
-        console.log('Mask width:', item.mask.width, 'height:', item.mask.height, 'max (sample):', maxVal);
-        return {
-          class: item.label,
-          score: item.score || 1.0,
-          mask: {
-            width: item.mask.width,
-            height: item.mask.height,
-            data: item.mask.data
-          }
-        };
-      });
+      const mapped = result.map((item: any) => ({
+        class: item.label,
+        score: item.score,
+        bbox: [item.box.xmin, item.box.ymin, item.box.xmax - item.box.xmin, item.box.ymax - item.box.ymin]
+      }));
       
       self.postMessage({ type: 'DETECT_RESULT', payload: mapped });
     } catch (error: any) {

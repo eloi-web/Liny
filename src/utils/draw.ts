@@ -2,49 +2,9 @@ import rough from 'roughjs';
 import { contours } from 'd3-contour';
 
 export interface Prediction {
+  bbox: [number, number, number, number];
   class: string;
   score: number;
-  mask?: {
-    width: number;
-    height: number;
-    data: Uint8Array;
-  };
-  bbox?: [number, number, number, number];
-  scaleX?: number;
-  scaleY?: number;
-  paths?: [number, number][][];
-}
-
-export function processMasks(predictions: Prediction[]) {
-  predictions.forEach(pred => {
-    if (pred.mask && !pred.paths) {
-      const { width: mW, height: mH, data } = pred.mask;
-      const values = new Float32Array(mW * mH);
-      for (let i = 0; i < data.length; i++) {
-        values[i] = data[i] > 128 ? 1 : 0;
-      }
-
-      const contourGen = contours().size([mW, mH]).thresholds([0.5]);
-      const contourData = contourGen(values);
-      const paths: [number, number][][] = [];
-
-      if (contourData.length > 0) {
-        contourData.forEach(contour => {
-          // contour is a MultiPolygon, so contour.coordinates is an array of Polygons
-          contour.coordinates.forEach(polygon => {
-            if (polygon.length > 0) {
-              // polygon[0] is the exterior ring
-              paths.push(polygon[0] as [number, number][]);
-            }
-          });
-        });
-      }
-      pred.paths = paths;
-      
-      // Free up memory immediately since we don't need the dense mask array anymore
-      delete pred.mask;
-    }
-  });
 }
 
 // Persisted tracking of detected objects in space to drive entry animations 
@@ -163,34 +123,7 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
   }
   
   predictions.forEach(pred => {
-    let x = 0, y = 0, width = 0, height = 0;
-    let pathsToDraw: [number, number][][] = [];
-
-    if (pred.paths && pred.scaleX && pred.scaleY) {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-      pred.paths.forEach(ring => {
-        const scaledRing: [number, number][] = ring.map(pt => {
-          const sx = pt[0] * pred.scaleX!;
-          const sy = pt[1] * pred.scaleY!;
-          if (sx < minX) minX = sx;
-          if (sy < minY) minY = sy;
-          if (sx > maxX) maxX = sx;
-          if (sy > maxY) maxY = sy;
-          return [sx, sy];
-        });
-        pathsToDraw.push(scaledRing);
-      });
-
-      if (pathsToDraw.length > 0) {
-        x = minX;
-        y = minY;
-        width = maxX - minX;
-        height = maxY - minY;
-      }
-    } else if (pred.bbox) {
-      [x, y, width, height] = pred.bbox;
-    }
+    const [x, y, width, height] = pred.bbox;
 
     if (width <= 0 || height <= 0) return;
     
@@ -214,27 +147,14 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
     const isLockingInProgress = isNewLockOn || age < 500;
 
     // A. Main Interactive Target Frame - Red sketchy lines like the reference
-    if (pathsToDraw.length > 0) {
-      pathsToDraw.forEach(ring => {
-        rc.polygon(ring, {
-          stroke: '#FF0000', // Intense red lines
-          strokeWidth: isLockingInProgress ? 4 : 2.5,
-          roughness: isLockingInProgress ? 2.5 : 3.5, // Much more sketchy and messy
-          fill: isLockingInProgress ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 0, 0, 0.05)',
-          fillStyle: 'zigzag', // Adds to the chaotic sketchy feel
-          bowing: 2, // Curve the lines more for hand-drawn look
-        });
-      });
-    } else {
-      rc.rectangle(x, y, width, height, {
-        stroke: '#FF0000', // Intense red lines
-        strokeWidth: isLockingInProgress ? 4 : 2.5,
-        roughness: isLockingInProgress ? 2.5 : 3.5, // Much more sketchy and messy
-        fill: isLockingInProgress ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 0, 0, 0.05)',
-        fillStyle: 'zigzag', // Adds to the chaotic sketchy feel
-        bowing: 2, // Curve the lines more for hand-drawn look
-      });
-    }
+    rc.rectangle(x, y, width, height, {
+      stroke: '#FF0000', // Intense red lines
+      strokeWidth: isLockingInProgress ? 4 : 2.5,
+      roughness: isLockingInProgress ? 2.5 : 3.5, // Much more sketchy and messy
+      fill: isLockingInProgress ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 0, 0, 0.05)',
+      fillStyle: 'zigzag', // Adds to the chaotic sketchy feel
+      bowing: 2, // Curve the lines more for hand-drawn look
+    });
     
     // B. Context-aware sci-fi immersive label translations
     const sciFiLabel = getSciFiLabel(pred.class);

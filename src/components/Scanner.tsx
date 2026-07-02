@@ -217,7 +217,7 @@ export default function Scanner() {
       localModelRef.current = loadedModel;
       setModelLoaded(true);
       setIsLoading(false);
-      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [SEGFORMER B0]`, 'init');
+      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [DETR RESNET-50]`, 'init');
     } catch (err: any) {
       console.error('Transformers model load faulted:', err);
       addLog(`NEURAL COOLDOWN INITIATED: GRID INITIALIZATION FAULT - ${err.message || String(err)}`, 'error');
@@ -266,11 +266,6 @@ export default function Scanner() {
           
           const { detectObjects } = await import('../utils/detector');
           const rawPredictions = await detectObjects(offscreenCanvasRef.current, thresholdRef.current / 100);
-          
-          if (rawPredictions && rawPredictions.length > 0) {
-            const { processMasks } = await import('../utils/draw');
-            processMasks(rawPredictions);
-          }
 
           predictionsRef.current = rawPredictions || [];
           
@@ -758,10 +753,10 @@ export default function Scanner() {
             <div className="flex flex-col space-y-2">
               <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
                 <span className="opacity-80 uppercase font-mono">Detection Pipeline</span>
-                <span className="text-neon-green font-bold uppercase font-mono">SEGFORMER B0</span>
+                <span className="text-neon-green font-bold uppercase font-mono">DETR RESNET-50</span>
               </div>
               <p className="text-[10px] text-gray-400 leading-snug font-sans">
-                Currently running Hugging Face Transformers SegFormer B0 for Image Segmentation.
+                Currently running Hugging Face Transformers DETR ResNet-50.
               </p>
             </div>
 
