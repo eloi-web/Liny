@@ -4,7 +4,6 @@ import Scanner from './components/Scanner';
 export default function App() {
   return (
     <div className="relative w-screen h-screen font-sans text-yellow-white bg-oil-black overflow-hidden">
-      <div className="scanline"></div>
       
       {/* HUD Header Overlay */}
       <header className="fixed top-0 left-0 w-full z-50 h-20 flex justify-between items-center px-4 md:px-8 bg-transparent pointer-events-none">

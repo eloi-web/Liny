@@ -36,6 +36,11 @@ self.onmessage = async (event) => {
       
       // result is array of { label, score, mask: RawImage }
       const mapped = result.map((item: any) => {
+        let maxVal = 0;
+        for (let i = 0; i < Math.min(1000, item.mask.data.length); i++) {
+          if (item.mask.data[i] > maxVal) maxVal = item.mask.data[i];
+        }
+        console.log('Mask width:', item.mask.width, 'height:', item.mask.height, 'max (sample):', maxVal);
         return {
           class: item.label,
           score: item.score || 1.0,

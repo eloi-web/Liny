@@ -29,10 +29,14 @@ export function processMasks(predictions: Prediction[]) {
       const paths: [number, number][][] = [];
 
       if (contourData.length > 0) {
-        contourData.forEach(polygon => {
-          if (polygon.coordinates.length > 0) {
-            paths.push(polygon.coordinates[0]);
-          }
+        contourData.forEach(contour => {
+          // contour is a MultiPolygon, so contour.coordinates is an array of Polygons
+          contour.coordinates.forEach(polygon => {
+            if (polygon.length > 0) {
+              // polygon[0] is the exterior ring
+              paths.push(polygon[0] as [number, number][]);
+            }
+          });
         });
       }
       pred.paths = paths;

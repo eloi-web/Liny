@@ -1,28 +1,28 @@
 # Liny
 
-A real-time object detection progressive web app designed with a clean, high-performance "Cyber-Detective" interface. Point your camera at anything, and watch it get recognized and sketched in real-time.
+A real-time image segmentation and object recognition progressive web app designed with a clean, high-performance "Cyber-Detective" interface. Point your camera at anything, and watch it get recognized and precisely outlined in real-time.
 
 ## Features
 
-- **Real-Time Detection:** Uses Transformers.js for DETR ResNet-50 object detection directly within the browser.
-- **Mobile Optimized Inference:** Employs a custom offscreen canvas downsampling matrix (300x300) before tensor operations, ensuring lag-free high-FPS scanning on mobile devices.
-- **Transformer Object Detection:** Utilizes the powerful `DETR ResNet-50` transformer model via Hugging Face (`@huggingface/transformers`) to detect 90+ classes of objects with significantly higher accuracy than standard SSD models.
-- **Sketchy Red Bounding Boxes:** Uses Rough.js to draw intense, hand-drawn red sketchy bounding boxes with dynamic styling over identified objects, capturing an artistic chaotic vibe.
-- **Toggleable HUD:** Allows users to hide all overlays and bounding boxes for an immersive, distraction-free view of the camera feed.
-- **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects ("Detected a chair", etc.) as they enter the frame.
+- **Real-Time Segmentation:** Uses Transformers.js for SegFormer B0 image segmentation directly within the browser.
+- **Precise Object Outlines:** Replaces standard bounding boxes with contour-traced, sketchy polygon outlines (using Rough.js and d3-contour) that perfectly trace the shape of the object.
+- **Mobile Optimized Inference:** Employs an intelligent offscreen downsampling mechanism and a Web Worker architecture to prevent the UI thread from blocking, ensuring lag-free high-FPS UI on any device.
+- **Toggleable HUD:** Allows users to hide all overlays and outlines for an immersive, distraction-free view of the camera feed.
+- **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects (e.g., "Detected a chair") as they enter the frame.
 - **Capture Gallery & History:** Take diagnostic snapshots that save directly into an in-app slide-up gallery drawer, complete with timestamps and detected object tags.
 - **Haptic Feedback:** Subtle tactile vibrations utilizing the browser's Haptic API for interactive UI feedback, shutter capture, and new object discovery pulses.
-- **Futuristic UI:** A dark, moody HUD with custom thresholds, rounded-xl interactive buttons, and glassmorphism.
-- **100% Client-Side:** All machine learning processing naturally happens entirely within the browser, ensuring maximum privacy and framerate performance without server round-trips.
+- **Futuristic UI:** A dark, moody HUD with custom thresholds, rounded interactive elements, and minimal neon accents.
+- **100% Client-Side:** All machine learning and mask processing happens entirely on-device, ensuring maximum privacy without server round-trips.
 
 ## Tech Stack
 
 - **React 19 & TypeScript:** Scalable, typed component architecture.
 - **Vite:** High-performance frontend tooling.
-- **Tailwind CSS:** For layout styling, glassmorphism UI, and glitch effects.
-- **TensorFlow.js (`@tensorflow/tfjs`) & COCO-SSD:** Client-side object detection.
+- **Tailwind CSS:** For layout styling, glassmorphism UI, and dark aesthetic.
+- **Transformers.js (`@huggingface/transformers`):** Client-side neural segmentation with the SegFormer B0 model.
 - **Rough.js:** For the sketchy, hand-drawn vector graphics on the Canvas.
-- **React Webcam:** Flexible webcam handling for different devices (mobile/desktop).
+- **d3-contour:** To convert dense tensor masks into crisp SVG polygon rings for drawing.
+- **React Webcam:** Flexible webcam handling for different devices.
 
 ## Development 
 

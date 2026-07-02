@@ -366,6 +366,7 @@ export default function Scanner() {
       });
 
       const filtered = scaled.filter(p => (p.score * 100) >= thresholdRef.current);
+      // console.log('Filtered:', filtered); // debug
       
       if (hudVisibleRef.current) {
         drawSketchyBoxes(canvas, filtered);
