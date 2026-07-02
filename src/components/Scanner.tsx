@@ -266,6 +266,12 @@ export default function Scanner() {
           
           const { detectObjects } = await import('../utils/detector');
           const rawPredictions = await detectObjects(offscreenCanvasRef.current, thresholdRef.current / 100);
+          
+          if (rawPredictions && rawPredictions.length > 0) {
+            const { processMasks } = await import('../utils/draw');
+            processMasks(rawPredictions);
+          }
+
           predictionsRef.current = rawPredictions || [];
           
           processPredictionsLogs(rawPredictions || []);

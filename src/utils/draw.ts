@@ -12,6 +12,35 @@ export interface Prediction {
   bbox?: [number, number, number, number];
   scaleX?: number;
   scaleY?: number;
+  paths?: [number, number][][];
+}
+
+export function processMasks(predictions: Prediction[]) {
+  predictions.forEach(pred => {
+    if (pred.mask && !pred.paths) {
+      const { width: mW, height: mH, data } = pred.mask;
+      const values = new Float32Array(mW * mH);
+      for (let i = 0; i < data.length; i++) {
+        values[i] = data[i] > 128 ? 1 : 0;
+      }
+
+      const contourGen = contours().size([mW, mH]).thresholds([0.5]);
+      const contourData = contourGen(values);
+      const paths: [number, number][][] = [];
+
+      if (contourData.length > 0) {
+        contourData.forEach(polygon => {
+          if (polygon.coordinates.length > 0) {
+            paths.push(polygon.coordinates[0]);
+          }
+        });
+      }
+      pred.paths = paths;
+      
+      // Free up memory immediately since we don't need the dense mask array anymore
+      delete pred.mask;
+    }
+  });
 }
 
 // Persisted tracking of detected objects in space to drive entry animations 
@@ -131,40 +160,25 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
   
   predictions.forEach(pred => {
     let x = 0, y = 0, width = 0, height = 0;
-    let paths: [number, number][][] = [];
+    let pathsToDraw: [number, number][][] = [];
 
-    if (pred.mask && pred.scaleX && pred.scaleY) {
-      const { width: mW, height: mH, data } = pred.mask;
-      const values = new Float32Array(mW * mH);
-      for (let i = 0; i < data.length; i++) {
-        values[i] = data[i] > 128 ? 1 : 0;
-      }
-
-      const contourGen = contours().size([mW, mH]).thresholds([0.5]);
-      const contourData = contourGen(values);
-      
+    if (pred.paths && pred.scaleX && pred.scaleY) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-      if (contourData.length > 0) {
-        contourData.forEach(polygon => {
-          if (polygon.coordinates.length > 0) {
-            // just use the outer ring
-            const ring = polygon.coordinates[0];
-            const scaledRing: [number, number][] = ring.map(pt => {
-              const sx = pt[0] * pred.scaleX!;
-              const sy = pt[1] * pred.scaleY!;
-              if (sx < minX) minX = sx;
-              if (sy < minY) minY = sy;
-              if (sx > maxX) maxX = sx;
-              if (sy > maxY) maxY = sy;
-              return [sx, sy];
-            });
-            paths.push(scaledRing);
-          }
+      pred.paths.forEach(ring => {
+        const scaledRing: [number, number][] = ring.map(pt => {
+          const sx = pt[0] * pred.scaleX!;
+          const sy = pt[1] * pred.scaleY!;
+          if (sx < minX) minX = sx;
+          if (sy < minY) minY = sy;
+          if (sx > maxX) maxX = sx;
+          if (sy > maxY) maxY = sy;
+          return [sx, sy];
         });
-      }
+        pathsToDraw.push(scaledRing);
+      });
 
-      if (paths.length > 0) {
+      if (pathsToDraw.length > 0) {
         x = minX;
         y = minY;
         width = maxX - minX;
@@ -174,7 +188,7 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
       [x, y, width, height] = pred.bbox;
     }
 
-    if (width === 0 || height === 0) return;
+    if (width <= 0 || height <= 0) return;
     
     // Generate a spatial tracking key based on coordinate quadrants to distinguish multiple nearby objects of the same class
     const spatialX = Math.round(x / 40) * 40;
@@ -196,8 +210,8 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
     const isLockingInProgress = isNewLockOn || age < 500;
 
     // A. Main Interactive Target Frame - Red sketchy lines like the reference
-    if (paths.length > 0) {
-      paths.forEach(ring => {
+    if (pathsToDraw.length > 0) {
+      pathsToDraw.forEach(ring => {
         rc.polygon(ring, {
           stroke: '#FF0000', // Intense red lines
           strokeWidth: isLockingInProgress ? 4 : 2.5,

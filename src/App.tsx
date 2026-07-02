@@ -9,7 +9,7 @@ export default function App() {
       {/* HUD Header Overlay */}
       <header className="fixed top-0 left-0 w-full z-50 h-20 flex justify-between items-center px-4 md:px-8 bg-transparent pointer-events-none">
         {/* Floating Title Capsule */}
-        <div className="flex items-center px-4 py-2 rounded-xl glass-panel pointer-events-auto shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
+        <div className="flex items-center px-4 py-2 pointer-events-auto">
           <h1 className="font-boxlines text-xl md:text-2xl font-bold text-yellow-white tracking-widest leading-none">
             Liny
           </h1>
@@ -21,7 +21,7 @@ export default function App() {
             href="https://github.com/eloi-web/liny" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-2.5 rounded-full glass-panel hover:border-yellow-white/30 text-yellow-white hover:text-neon-green transition-all flex items-center justify-center group shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
+            className="p-2.5 rounded-full hover:bg-white/10 text-yellow-white hover:text-neon-green transition-all flex items-center justify-center group"
             title="Source Code"
           >
             <svg className="w-5 h-5 group-hover:drop-shadow-[0_0_8px_rgba(254,255,167,0.8)]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
