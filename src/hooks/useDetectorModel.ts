@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { loadDetectorModel, terminateDetectorWorker } from '../utils/detector';
+import { DETECTION_MODEL_LABEL } from '../utils/modelConfig';
 
 type LogType = 'detect' | 'init' | 'unidentified' | 'error' | 'success';
 
@@ -39,7 +40,7 @@ export function useDetectorModel({ addLog }: UseDetectorModelOptions) {
       modelReadyRef.current = true;
       setModelLoaded(true);
       setIsLoading(false);
-      addLog('LOCK IDENTIFICATION PIPELINE FULLY CHARGED [DETR RESNET-50]', 'init');
+      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [${DETECTION_MODEL_LABEL}]`, 'init');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (import.meta.env.DEV) {
