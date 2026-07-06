@@ -8,6 +8,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
+import { DETECTION_MODEL_LABEL } from '../utils/modelConfig';
 
 interface CalibrationPanelProps {
   scanInterval: number;
@@ -70,10 +71,10 @@ export default function CalibrationPanel({
         <div className="flex flex-col space-y-2">
           <div className="flex justify-between items-center font-mono text-xs font-bold tracking-wider text-off-white">
             <span className="opacity-80 uppercase font-mono">Detection Pipeline</span>
-            <span className="text-neon-green font-bold uppercase font-mono">DETR RESNET-50</span>
-          </div>
-          <p className="text-[10px] text-gray-400 leading-snug font-sans">
-            Currently running Hugging Face Transformers DETR ResNet-50.
+                <span className="text-neon-green font-bold uppercase font-mono">{DETECTION_MODEL_LABEL}</span>
+              </div>
+              <p className="text-[10px] text-gray-400 leading-snug font-sans">
+                Lightweight COCO detector optimized for real-time mobile inference via Transformers.js.
           </p>
         </div>
 
