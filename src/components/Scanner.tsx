@@ -445,7 +445,7 @@ export default function Scanner() {
   return (
     <div className="w-full h-full relative">
       <div
-        className="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-[#0C0C0C] transition-all duration-300"
+        className="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-oil-black transition-all duration-300"
         style={{
           backgroundImage: !isScanning ? IDLE_BACKGROUND : 'none',
           backgroundRepeat: 'repeat',
@@ -467,7 +467,7 @@ export default function Scanner() {
             </p>
             <button
               onClick={toggleScanner}
-              className="px-6 py-3 bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 transition-all border border-white shadow-[0_0_20px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 tracking-widest duration-150 cursor-pointer uppercase font-bold"
+              className="px-6 py-3 bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 transition-all border border-white shadow-[0_0_20px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 tracking-widest duration-150 cursor-pointer uppercase"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               START SCANNER
@@ -641,11 +641,11 @@ export default function Scanner() {
                 key={log.id}
                 className="flex justify-between items-start text-xs md:text-sm py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 rounded px-1 transition-colors duration-100"
               >
-                <span className="text-gray-500 font-mono flex-shrink-0 mr-2 text-[10px]">
+                <span className="text-gray-500 font-mono shrink-0 mr-2 text-[10px]">
                   [{log.time}]
                 </span>
                 <span
-                  className={`flex-1 break-words font-bold uppercase tracking-wide ${log.type === 'init' ? 'text-gray-400 font-mono text-xs normal-case' : log.type === 'error' ? 'text-red-400 font-bold' : log.type === 'success' ? 'text-neon-green font-bold' : 'text-gray-100'}`}
+                  className={`flex-1 wrap-break-word font-bold uppercase tracking-wide ${log.type === 'init' ? 'text-gray-400 font-mono text-xs normal-case' : log.type === 'error' ? 'text-red-400 font-bold' : log.type === 'success' ? 'text-neon-green font-bold' : 'text-gray-100'}`}
                 >
                   {log.text}
                 </span>
@@ -689,12 +689,12 @@ export default function Scanner() {
 
       {isScanning && (
         <div className="fixed bottom-8 left-0 right-0 z-40 flex flex-col items-center justify-center px-4">
-          <div className="flex items-center justify-between w-full max-w-[320px] sm:max-w-[380px] mx-auto glass-panel p-2 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between w-full max-w-[320px] sm:max-w-[380px] mx-auto glass-panel p-2 rounded-4xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
             <CaptureThumbnail captures={captures} onOpen={() => setIsGalleryOpen(true)} />
 
             <button
               onClick={captureScreenshot}
-              className="w-[72px] h-[72px] rounded-full bg-transparent border-[4px] border-white/80 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer flex-shrink-0"
+              className="w-[72px] h-[72px] rounded-full bg-transparent border-4 border-white/80 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer shrink-0"
             >
               <div className="w-[56px] h-[56px] bg-white rounded-full transition-transform active:scale-90 shadow-lg" />
             </button>
@@ -702,7 +702,7 @@ export default function Scanner() {
             <button
               onClick={toggleScanner}
               disabled={isLoading}
-              className="w-14 h-14 rounded-full bg-black/80 text-off-white hover:bg-white hover:text-black border-2 border-white/20 hover:border-white flex flex-col items-center justify-center shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 cursor-pointer flex-shrink-0"
+              className="w-14 h-14 rounded-full bg-black/80 text-off-white hover:bg-white hover:text-black border-2 border-white/20 hover:border-white flex flex-col items-center justify-center shadow-[0_4px_32px_rgba(0,0,0,0.85)] duration-200 cursor-pointer shrink-0"
               title="Stop Scanner"
             >
               <Square className="w-5 h-5 fill-current text-current" />
