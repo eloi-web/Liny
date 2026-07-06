@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap');
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'BoxLines';
+  src: url('/fonts/BoxLines.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --color-oil-black: #0C0C0C;
   --color-off-white: #E5E7EB;
@@ -10,7 +18,7 @@
 
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "DM Sans", ui-monospace, SFMono-Regular, monospace;
-  --font-boxlines: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-boxlines: "BoxLines", sans-serif;
 }
 
 body {
