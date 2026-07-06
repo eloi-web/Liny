@@ -39,7 +39,6 @@ self.onmessage = async (event) => {
       if (!detectorPipeline) {
         detectorPipeline = await pipeline('object-detection', DETECTION_MODEL, {
           device: 'wasm',
-          dtype: 'q8',
           progress_callback: (progress: { status?: string; file?: string; progress?: number }) => {
             self.postMessage({ type: 'MODEL_PROGRESS', payload: progress });
           },
