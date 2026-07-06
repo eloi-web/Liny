@@ -37,6 +37,11 @@ To run this project locally:
    npm run dev
    ```
 
+   To test on a phone over your local network:
+   ```bash
+   npm run dev:lan
+   ```
+
 ## Production Build
 
 To build the project for production, which compiles to static assets inside the `dist/` folder:
