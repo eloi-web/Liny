@@ -19,7 +19,7 @@ A real-time object detection progressive web app designed with a clean, high-per
 - **React 19 & TypeScript:** Scalable, typed component architecture.
 - **Vite:** High-performance frontend tooling.
 - **Tailwind CSS:** For layout styling, glassmorphism UI, and dark aesthetic.
-- **Transformers.js (`@huggingface/transformers`):** Client-side neural object detection with the DETR ResNet-50 model.
+- **Transformers.js (`@huggingface/transformers`):** Client-side neural object detection with the SSD MobileNet v1 model (mobile-optimized).
 - **Rough.js:** For the sketchy, hand-drawn vector graphics on the Canvas.
 - **React Webcam:** Flexible webcam handling for different devices.
 
@@ -37,10 +37,11 @@ To run this project locally:
    npm run dev
    ```
 
-   To test on a phone over your local network:
+   To test on a phone over your local network, the page must be served over **HTTPS** (iOS Safari blocks the camera on plain HTTP):
    ```bash
    npm run dev:lan
    ```
+   Then open the URL shown in the terminal from your phone. For reliable mobile camera access, deploy to a host with HTTPS or use a tunnel (e.g. ngrok, Cloudflare Tunnel).
 
 ## Production Build
 
