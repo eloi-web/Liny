@@ -6,12 +6,21 @@ let worker: Worker | null = null;
 let resolveModelLoad: ((value: boolean) => void) | null = null;
 let rejectModelLoad: ((reason: Error) => void) | null = null;
 let resolveDetect: ((value: Prediction[]) => void) | null = null;
+let rejectDetect: ((reason: Error) => void) | null = null;
 let onProgressCallback: ((progress: ProgressPayload) => void) | null = null;
+let onDetectErrorCallback: ((message: string) => void) | null = null;
 
 function ensureWorker() {
   if (worker) return;
 
   worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+
+  worker.onerror = (event) => {
+    const message = event.message || 'Worker failed to start';
+    rejectModelLoad?.(new Error(message));
+    rejectDetect?.(new Error(message));
+    onDetectErrorCallback?.(message);
+  };
 
   worker.onmessage = (event) => {
     const { type, payload } = event.data;
@@ -29,12 +38,12 @@ function ensureWorker() {
     } else if (type === 'DETECT_RESULT') {
       resolveDetect?.(payload);
       resolveDetect = null;
+      rejectDetect = null;
     } else if (type === 'DETECT_ERROR') {
-      if (import.meta.env.DEV) {
-        console.error('Detection error:', payload);
-      }
+      onDetectErrorCallback?.(payload);
       resolveDetect?.([]);
       resolveDetect = null;
+      rejectDetect = null;
     }
   };
 }
@@ -50,19 +59,41 @@ export async function loadDetectorModel(onProgress?: (progress: ProgressPayload)
   });
 }
 
-export async function detectObjects(imageSource: HTMLCanvasElement, threshold = 0.1) {
+function canvasToJpegBuffer(canvas: HTMLCanvasElement): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to capture camera frame'));
+          return;
+        }
+        blob.arrayBuffer().then(resolve).catch(reject);
+      },
+      'image/jpeg',
+      0.85,
+    );
+  });
+}
+
+export async function detectObjects(
+  imageSource: HTMLCanvasElement,
+  threshold = 0.1,
+  onError?: (message: string) => void,
+) {
   if (!worker) return [];
 
-  const bitmap = await createImageBitmap(imageSource);
+  onDetectErrorCallback = onError ?? null;
+  const imageBuffer = await canvasToJpegBuffer(imageSource);
 
-  return new Promise<Prediction[]>((resolve) => {
+  return new Promise<Prediction[]>((resolve, reject) => {
     resolveDetect = resolve;
+    rejectDetect = reject;
     worker!.postMessage(
       {
         type: 'DETECT',
-        payload: { image: bitmap, threshold },
+        payload: { imageBuffer, mimeType: 'image/jpeg', threshold },
       },
-      [bitmap],
+      [imageBuffer],
     );
   });
 }
@@ -75,5 +106,7 @@ export function terminateDetectorWorker() {
   resolveModelLoad = null;
   rejectModelLoad = null;
   resolveDetect = null;
+  rejectDetect = null;
   onProgressCallback = null;
+  onDetectErrorCallback = null;
 }
