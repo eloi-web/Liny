@@ -21,8 +21,12 @@ import { drawSketchyBoxes, getSciFiLabel, Prediction } from '../utils/draw';
 import { speakObject } from '../utils/speech';
 
 const MAX_CAPTURES = 20;
-const IDLE_BACKGROUND =
-  'radial-gradient(circle at 20% 20%, rgba(182,255,161,0.06) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(254,255,167,0.04) 0%, transparent 40%), linear-gradient(rgba(12, 12, 12, 0.35), rgba(12, 12, 12, 0.45)), repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 24px), repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 24px)';
+
+const MOBILE_VIDEO_CONSTRAINTS: MediaTrackConstraints = {
+  facingMode: 'environment',
+  width: { ideal: 640, max: 1280 },
+  height: { ideal: 480, max: 720 },
+};
 
 const vibrate = (pattern: number | number[]) => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -49,7 +53,7 @@ export default function Scanner() {
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [scanInterval, setScanInterval] = useState(250);
-  const [threshold, setThreshold] = useState(50);
+  const [threshold, setThreshold] = useState(30);
   const [isScanning, setIsScanning] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([
@@ -70,7 +74,7 @@ export default function Scanner() {
   const [currentFps, setCurrentFps] = useState(60);
   const [adaptiveThrottleActive, setAdaptiveThrottleActive] = useState(false);
 
-  const thresholdRef = useRef(50);
+  const thresholdRef = useRef(30);
   const voiceEnabledRef = useRef(false);
   const scanIntervalRef = useRef(250);
   const loopActive = useRef(false);
@@ -186,10 +190,16 @@ export default function Scanner() {
     if (!loopActive.current) return;
 
     const webcam = webcamRef.current;
-    if (webcam?.video?.readyState === 4 && modelReadyRef.current && !inferenceBusyRef.current) {
+    const video = webcam?.video;
+    if (
+      video?.readyState === 4 &&
+      video.videoWidth > 0 &&
+      video.videoHeight > 0 &&
+      modelReadyRef.current &&
+      !inferenceBusyRef.current
+    ) {
       try {
         inferenceBusyRef.current = true;
-        const video = webcam.video;
 
         if (!offscreenCanvasRef.current) {
           offscreenCanvasRef.current = document.createElement('canvas');
@@ -216,7 +226,11 @@ export default function Scanner() {
         const octx = offscreen.getContext('2d');
         if (octx) {
           octx.drawImage(video, 0, 0, targetWidth, targetHeight);
-          const rawPredictions = await detectObjects(offscreen, thresholdRef.current / 100);
+          const rawPredictions = await detectObjects(
+            offscreen,
+            thresholdRef.current / 100,
+            (message) => addLog(`INFERENCE FAULT: ${message}`, 'error'),
+          );
           predictionsRef.current = rawPredictions;
           processPredictionsLogs(rawPredictions);
         }
@@ -234,7 +248,7 @@ export default function Scanner() {
       : scanIntervalRef.current;
 
     setTimeout(() => runInferenceRef.current(), effectiveScanInterval);
-  }, [adaptiveThrottleActive, processPredictionsLogs, modelReadyRef]);
+  }, [adaptiveThrottleActive, processPredictionsLogs, modelReadyRef, addLog]);
 
   const detectFrame = useCallback(() => {
     if (!loopActive.current) return;
@@ -370,6 +384,14 @@ export default function Scanner() {
       unloadModel();
       addLog('SCANNER ENGAGED OFFLINE', 'init');
     } else {
+      if (typeof window !== 'undefined' && !window.isSecureContext) {
+        setPermissionError(
+          'Mobile browsers require HTTPS for camera access. Deploy the app over HTTPS or use a secure tunnel (e.g. ngrok).',
+        );
+        addLog('MOBILE CAMERA REQUIRES HTTPS — open via https:// or localhost', 'error');
+        return;
+      }
+
       setPermissionError(null);
       setIsScanning(true);
       addLog('REAL-TIME DIAGNOSTICS INITIATED', 'init');
@@ -447,7 +469,9 @@ export default function Scanner() {
       <div
         className="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-oil-black transition-all duration-300"
         style={{
-          backgroundImage: !isScanning ? IDLE_BACKGROUND : 'none',
+          backgroundImage: !isScanning
+            ? 'linear-gradient(rgba(12, 12, 12, 0.35), rgba(12, 12, 12, 0.45)), url("/patterns_1.jpg")'
+            : 'none',
           backgroundRepeat: 'repeat',
           backgroundPosition: 'center',
           backgroundSize: 'cover',
@@ -493,10 +517,8 @@ export default function Scanner() {
               mirrored={facingMode === 'user'}
               screenshotFormat="image/jpeg"
               videoConstraints={{
+                ...MOBILE_VIDEO_CONSTRAINTS,
                 facingMode,
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                aspectRatio: 1.777777778,
               }}
               onUserMediaError={handleCameraError}
               className="w-full h-full object-cover"
@@ -512,25 +534,34 @@ export default function Scanner() {
         </div>
       )}
 
-      {isLoading && (
+      {isScanning && isLoading && (
+        <div className="absolute bottom-28 left-4 right-4 z-40 mx-auto max-w-md glass-panel border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
+          <Loader2 className="w-5 h-5 text-neon-green animate-spin flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-[10px] text-gray-300 tracking-widest uppercase truncate">
+              Loading model — camera preview is live
+            </p>
+            {downloadProgress > 0 && downloadProgress < 100 && (
+              <>
+                <div className="h-1 bg-white/10 rounded-full overflow-hidden mt-2">
+                  <div
+                    className="h-full bg-neon-green transition-all duration-300"
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+                <p className="font-mono text-[9px] text-gray-500 mt-1">{downloadProgress}%</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!isScanning && isLoading && (
         <div className="absolute inset-0 z-40 bg-black/90 flex flex-col items-center justify-center backdrop-blur-sm">
           <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
           <p className="font-mono text-gray-400 text-xs tracking-widest animate-pulse uppercase">
             CONFIGURING neural PIPELINE...
           </p>
-          {downloadProgress > 0 && downloadProgress < 100 && (
-            <div className="w-64 mt-4">
-              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-white transition-all duration-300"
-                  style={{ width: `${downloadProgress}%` }}
-                />
-              </div>
-              <p className="font-mono text-[10px] text-gray-500 text-center mt-2">
-                DOWNLOADING MODEL WEIGHTS: {downloadProgress}%
-              </p>
-            </div>
-          )}
         </div>
       )}
 
