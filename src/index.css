@@ -1,13 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap');
 @import "tailwindcss";
-
-@font-face {
-  font-family: 'BoxLines';
-  src: url('/fonts/BoxLines.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
 
 @theme {
   --color-oil-black: #0C0C0C;
@@ -15,10 +7,10 @@
   --color-yellow-white: #FEFFA7;
   --color-neon-green: #B6FFA1;
   --color-investigative-red: #ff3333;
-  
+
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "DM Sans", ui-monospace, SFMono-Regular, monospace;
-  --font-boxlines: "BoxLines", sans-serif;
+  --font-boxlines: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
@@ -28,20 +20,6 @@ body {
   position: relative;
   margin: 0;
   padding: 0;
-}
-
-.glitch-hover:hover {
-  text-shadow: 2px 0 #FFFFFF, -2px 0 #555555;
-  animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
-}
-
-@keyframes glitch {
-  0% { transform: translate(0) }
-  20% { transform: translate(-2px, 2px) }
-  40% { transform: translate(-2px, -2px) }
-  60% { transform: translate(2px, 2px) }
-  80% { transform: translate(2px, -2px) }
-  100% { transform: translate(0) }
 }
 
 @layer components {
@@ -103,7 +81,7 @@ input[type=range].cursor-ns-resize {
 }
 
 input[type=range].cursor-ns-resize::-webkit-slider-thumb {
-  margin-top: 0 !important; /* Center the thumb vertically */
+  margin-top: 0 !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -117,7 +95,6 @@ input[type=range].cursor-ns-resize::-webkit-slider-thumb {
   border-radius: 2px;
 }
 
-/* Elegant HUD header fade-out when Calibration Modal is active */
 body:has(#calibration-modal) header,
 body.calibration-open header {
   opacity: 0 !important;
@@ -130,4 +107,3 @@ body.calibration-open header {
 header {
   transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
 }
-
