@@ -1,60 +1,79 @@
+import type { Prediction } from './draw';
+
+type ProgressPayload = { status?: string; file?: string; progress?: number };
+
 let worker: Worker | null = null;
-let resolveModelLoad: ((value: any) => void) | null = null;
-let rejectModelLoad: ((reason: any) => void) | null = null;
-let resolveDetect: ((value: any) => void) | null = null;
+let resolveModelLoad: ((value: boolean) => void) | null = null;
+let rejectModelLoad: ((reason: Error) => void) | null = null;
+let resolveDetect: ((value: Prediction[]) => void) | null = null;
+let onProgressCallback: ((progress: ProgressPayload) => void) | null = null;
 
-let onProgressCallback: ((progress: any) => void) | null = null;
+function ensureWorker() {
+  if (worker) return;
 
-export async function loadDetectorModel(onProgress?: (progress: any) => void) {
-  if (!worker) {
-    worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-    
-    worker.onmessage = (event) => {
-      const { type, payload } = event.data;
-      
-      if (type === 'MODEL_LOADED') {
-        if (resolveModelLoad) resolveModelLoad(true);
-      } else if (type === 'MODEL_ERROR') {
-        if (rejectModelLoad) rejectModelLoad(new Error(payload));
-      } else if (type === 'MODEL_PROGRESS') {
-        if (onProgressCallback) onProgressCallback(payload);
-      } else if (type === 'DETECT_RESULT') {
-        if (resolveDetect) {
-          resolveDetect(payload);
-          resolveDetect = null;
-        }
-      } else if (type === 'DETECT_ERROR') {
-        if (resolveDetect) {
-          console.error("Detection error:", payload);
-          resolveDetect([]);
-          resolveDetect = null;
-        }
+  worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+
+  worker.onmessage = (event) => {
+    const { type, payload } = event.data;
+
+    if (type === 'MODEL_LOADED') {
+      resolveModelLoad?.(true);
+      resolveModelLoad = null;
+      rejectModelLoad = null;
+    } else if (type === 'MODEL_ERROR') {
+      rejectModelLoad?.(new Error(payload));
+      resolveModelLoad = null;
+      rejectModelLoad = null;
+    } else if (type === 'MODEL_PROGRESS') {
+      onProgressCallback?.(payload);
+    } else if (type === 'DETECT_RESULT') {
+      resolveDetect?.(payload);
+      resolveDetect = null;
+    } else if (type === 'DETECT_ERROR') {
+      if (import.meta.env.DEV) {
+        console.error('Detection error:', payload);
       }
-    };
-  }
+      resolveDetect?.([]);
+      resolveDetect = null;
+    }
+  };
+}
 
-  onProgressCallback = onProgress || null;
+export async function loadDetectorModel(onProgress?: (progress: ProgressPayload) => void) {
+  ensureWorker();
+  onProgressCallback = onProgress ?? null;
 
-  return new Promise((resolve, reject) => {
+  return new Promise<boolean>((resolve, reject) => {
     resolveModelLoad = resolve;
     rejectModelLoad = reject;
     worker!.postMessage({ type: 'LOAD_MODEL' });
   });
 }
 
-export async function detectObjects(imageSource: any, threshold: number = 0.1) {
+export async function detectObjects(imageSource: HTMLCanvasElement, threshold = 0.1) {
   if (!worker) return [];
-  
-  return new Promise((resolve) => {
+
+  const bitmap = await createImageBitmap(imageSource);
+
+  return new Promise<Prediction[]>((resolve) => {
     resolveDetect = resolve;
-    // We send a data URL to the worker to avoid transferring large canvas objects directly (since it's an offscreen canvas)
-    worker!.postMessage({ 
-      type: 'DETECT', 
-      payload: { 
-        image: imageSource.toDataURL('image/jpeg', 0.8), 
-        threshold 
-      } 
-    });
+    worker!.postMessage(
+      {
+        type: 'DETECT',
+        payload: { image: bitmap, threshold },
+      },
+      [bitmap],
+    );
   });
 }
 
+export function terminateDetectorWorker() {
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+  resolveModelLoad = null;
+  rejectModelLoad = null;
+  resolveDetect = null;
+  onProgressCallback = null;
+}
