@@ -536,7 +536,7 @@ export default function Scanner() {
 
       {isScanning && isLoading && (
         <div className="absolute bottom-28 left-4 right-4 z-40 mx-auto max-w-md glass-panel border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
-          <Loader2 className="w-5 h-5 text-neon-green animate-spin flex-shrink-0" />
+          <Loader2 className="w-5 h-5 text-neon-green animate-spin shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-mono text-[10px] text-gray-300 tracking-widest uppercase truncate">
               Loading model — camera preview is live
