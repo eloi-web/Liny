@@ -49,10 +49,10 @@ export default function CaptureGallery({ isOpen, captures, onClose }: CaptureGal
               {captures.map((capture) => (
                 <div
                   key={capture.id}
-                  className="group relative rounded-xl overflow-hidden border border-white/10 bg-[#151515] aspect-[3/4] shadow-lg"
+                  className="group relative rounded-xl overflow-hidden border border-white/10 bg-[#151515] aspect-3/4 shadow-lg"
                 >
                   <img src={capture.dataUrl} alt="Capture" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-3.5">
+                  <div className="absolute inset-0 bg-linear-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-3.5">
                     <div className="text-[10px] font-mono text-white/50 mb-2">
                       {new Date(capture.timestamp).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -110,7 +110,7 @@ export function CaptureThumbnail({
   return (
     <div
       onClick={onOpen}
-      className="w-14 h-14 rounded-full overflow-hidden bg-black/80 border-2 border-white/20 cursor-pointer hover:border-white transition-colors flex-shrink-0 relative group shadow-inner"
+      className="w-14 h-14 rounded-full overflow-hidden bg-black/80 border-2 border-white/20 cursor-pointer hover:border-white transition-colors shrink-0 relative group shadow-inner"
     >
       {captures.length > 0 ? (
         <>
