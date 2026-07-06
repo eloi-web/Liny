@@ -74,7 +74,7 @@ export default function CalibrationPanel({
                 <span className="text-neon-green font-bold uppercase font-mono">{DETECTION_MODEL_LABEL}</span>
               </div>
               <p className="text-[10px] text-gray-400 leading-snug font-sans">
-                Lightweight COCO detector optimized for real-time mobile inference via Transformers.js.
+                Lightweight transformer detector optimized for real-time mobile inference via Transformers.js.
           </p>
         </div>
 
