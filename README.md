@@ -19,7 +19,7 @@ A real-time object detection progressive web app designed with a clean, high-per
 - **React 19 & TypeScript:** Scalable, typed component architecture.
 - **Vite:** High-performance frontend tooling.
 - **Tailwind CSS:** For layout styling, glassmorphism UI, and dark aesthetic.
-- **Transformers.js (`@huggingface/transformers`):** Client-side neural object detection with the SSD MobileNet v1 model (mobile-optimized).
+- **Transformers.js (`@huggingface/transformers`):** Client-side neural object detection with the YOLOS Tiny model (mobile-friendly).
 - **Rough.js:** For the sketchy, hand-drawn vector graphics on the Canvas.
 - **React Webcam:** Flexible webcam handling for different devices.
 
