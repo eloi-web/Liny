@@ -552,7 +552,7 @@ export default function Scanner() {
       )}
 
       {isScanning && isLoading && (
-        <div className="fixed top-36 left-4 right-4 z-[80] mx-auto max-w-md glass-panel border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.8)] pointer-events-none">
+        <div className="fixed top-36 left-4 right-4 z-80 mx-auto max-w-md glass-panel border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.8)] pointer-events-none">
           <Loader2 className="w-5 h-5 text-neon-green animate-spin shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-mono text-[10px] text-gray-300 tracking-widest uppercase truncate">
