@@ -27,7 +27,7 @@ export function useDetectorModel({ addLog }: UseDetectorModelOptions) {
       addLog('DOWNLOADING ZERO-SHOT TRANSFORMER WEIGHTS...', 'init');
       setDownloadProgress(0);
 
-      await loadDetectorModel((progress) => {
+      const device = await loadDetectorModel((progress) => {
         if (progress.status === 'progress' && progress.progress !== undefined) {
           setDownloadProgress(Math.round(progress.progress));
         } else if (progress.status === 'done' && progress.file) {
@@ -40,7 +40,10 @@ export function useDetectorModel({ addLog }: UseDetectorModelOptions) {
       modelReadyRef.current = true;
       setModelLoaded(true);
       setIsLoading(false);
-      addLog(`LOCK IDENTIFICATION PIPELINE FULLY CHARGED [${DETECTION_MODEL_LABEL}]`, 'init');
+      addLog(
+        `LOCK IDENTIFICATION PIPELINE FULLY CHARGED [${DETECTION_MODEL_LABEL} / ${device.toUpperCase()}]`,
+        'init',
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (import.meta.env.DEV) {
