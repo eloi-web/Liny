@@ -21,6 +21,22 @@ async function hasWebGPU(): Promise<boolean> {
   }
 }
 
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Shrinking the model input resolution speeds up inference roughly quadratically;
+// the pipeline rescales boxes back to the original image size automatically.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tuneInputSize(p: any, shortestEdge: number, longestEdge: number) {
+  try {
+    const fe = p.processor?.feature_extractor ?? p.processor?.image_processor;
+    if (fe?.size) {
+      fe.size = { shortest_edge: shortestEdge, longest_edge: longestEdge };
+    }
+  } catch {
+    // Best-effort tuning only.
+  }
+}
+
 async function loadPipeline(progress_callback: ProgressCallback) {
   if (await hasWebGPU()) {
     try {
@@ -30,6 +46,9 @@ async function loadPipeline(progress_callback: ProgressCallback) {
         progress_callback,
       });
       activeDevice = 'webgpu';
+      if (IS_MOBILE) {
+        tuneInputSize(p, 320, 640);
+      }
       return p;
     } catch {
       // WebGPU init can fail on partial implementations; fall back to WASM.
@@ -43,17 +62,11 @@ async function loadPipeline(progress_callback: ProgressCallback) {
   });
   activeDevice = 'wasm';
 
-  // On slow CPUs, halving the input resolution gives a ~4x WASM speedup.
-  // The pipeline rescales boxes back to the original image size automatically.
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const proc = (p as any).processor;
-    const fe = proc?.feature_extractor ?? proc?.image_processor;
-    if (fe?.size) {
-      fe.size = { shortest_edge: 320, longest_edge: 640 };
-    }
-  } catch {
-    // Best-effort tuning only.
+  // Phone CPUs need the smallest input that still detects reliably.
+  if (IS_MOBILE) {
+    tuneInputSize(p, 224, 448);
+  } else {
+    tuneInputSize(p, 320, 640);
   }
 
   return p;
