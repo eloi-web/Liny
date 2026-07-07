@@ -1,9 +1,10 @@
 import type { Prediction } from './draw';
 
 type ProgressPayload = { status?: string; file?: string; progress?: number };
+export type DetectorDevice = 'webgpu' | 'wasm';
 
 let worker: Worker | null = null;
-let resolveModelLoad: ((value: boolean) => void) | null = null;
+let resolveModelLoad: ((value: DetectorDevice) => void) | null = null;
 let rejectModelLoad: ((reason: Error) => void) | null = null;
 let resolveDetect: ((value: Prediction[]) => void) | null = null;
 let rejectDetect: ((reason: Error) => void) | null = null;
@@ -26,7 +27,7 @@ function ensureWorker() {
     const { type, payload } = event.data;
 
     if (type === 'MODEL_LOADED') {
-      resolveModelLoad?.(true);
+      resolveModelLoad?.(payload?.device ?? 'wasm');
       resolveModelLoad = null;
       rejectModelLoad = null;
     } else if (type === 'MODEL_ERROR') {
@@ -52,7 +53,7 @@ export async function loadDetectorModel(onProgress?: (progress: ProgressPayload)
   ensureWorker();
   onProgressCallback = onProgress ?? null;
 
-  return new Promise<boolean>((resolve, reject) => {
+  return new Promise<DetectorDevice>((resolve, reject) => {
     resolveModelLoad = resolve;
     rejectModelLoad = reject;
     worker!.postMessage({ type: 'LOAD_MODEL' });
