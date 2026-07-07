@@ -73,6 +73,7 @@ export default function Scanner() {
   const [hudVisible, setHudVisible] = useState(true);
   const [currentFps, setCurrentFps] = useState(60);
   const [adaptiveThrottleActive, setAdaptiveThrottleActive] = useState(false);
+  const [sweepMs, setSweepMs] = useState<number | null>(null);
 
   const thresholdRef = useRef(30);
   const voiceEnabledRef = useRef(false);
@@ -234,12 +235,17 @@ export default function Scanner() {
             (message) => addLog(`INFERENCE FAULT: ${message}`, 'error'),
           );
           predictionsRef.current = rawPredictions;
+          const passMs = Date.now() - sweepStart;
+          setSweepMs(passMs);
           if (!firstSweepDoneRef.current) {
             firstSweepDoneRef.current = true;
             addLog(
-              `NEURAL SWEEP ONLINE — ${((Date.now() - sweepStart) / 1000).toFixed(1)}s PER PASS, ${rawPredictions.length} TARGETS`,
+              `NEURAL SWEEP ONLINE — ${(passMs / 1000).toFixed(1)}s PER PASS, ${rawPredictions.length} TARGETS`,
               'init',
             );
+            if (passMs > 5000) {
+              addLog('SLOW DEVICE DETECTED — HOLD CAMERA STEADY BETWEEN SWEEPS', 'unidentified');
+            }
           }
           processPredictionsLogs(rawPredictions);
         }
@@ -389,6 +395,7 @@ export default function Scanner() {
     if (isScanning) {
       setIsScanning(false);
       firstSweepDoneRef.current = false;
+      setSweepMs(null);
       predictionsRef.current = [];
       canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       unloadModel();
@@ -545,7 +552,7 @@ export default function Scanner() {
       )}
 
       {isScanning && isLoading && (
-        <div className="absolute bottom-28 left-4 right-4 z-40 mx-auto max-w-md glass-panel border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
+        <div className="fixed top-36 left-4 right-4 z-[80] mx-auto max-w-md glass-panel border border-white/10 rounded-2xl p-4 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.8)] pointer-events-none">
           <Loader2 className="w-5 h-5 text-neon-green animate-spin shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="font-mono text-[10px] text-gray-300 tracking-widest uppercase truncate">
@@ -628,6 +635,16 @@ export default function Scanner() {
               )}
             </span>
           </div>
+
+          {sweepMs !== null && (
+            <div
+              className={`glass-panel px-3.5 py-1.5 rounded-lg border flex items-center gap-2 ${sweepMs > 4000 ? 'border-yellow-500/30 text-yellow-300' : 'border-white/10 text-off-white'}`}
+            >
+              <span className="font-mono text-[10px] md:text-xs font-bold tracking-widest uppercase">
+                SWEEP: {(sweepMs / 1000).toFixed(1)}s
+              </span>
+            </div>
+          )}
 
           {zoom > 1.0 && (
             <div className="glass-panel px-3.5 py-1.5 rounded-lg border border-white/10 flex items-center gap-1.5 text-neon-green">
