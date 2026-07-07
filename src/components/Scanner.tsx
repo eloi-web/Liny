@@ -85,6 +85,7 @@ export default function Scanner() {
   const runInferenceRef = useRef<() => void>(() => undefined);
   const detectFrameRef = useRef<() => void>(() => undefined);
   const inferenceBusyRef = useRef(false);
+  const firstSweepDoneRef = useRef(false);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionsRef = useRef<Prediction[]>([]);
   const hudVisibleRef = useRef(true);
@@ -226,12 +227,20 @@ export default function Scanner() {
         const octx = offscreen.getContext('2d');
         if (octx) {
           octx.drawImage(video, 0, 0, targetWidth, targetHeight);
+          const sweepStart = Date.now();
           const rawPredictions = await detectObjects(
             offscreen,
             thresholdRef.current / 100,
             (message) => addLog(`INFERENCE FAULT: ${message}`, 'error'),
           );
           predictionsRef.current = rawPredictions;
+          if (!firstSweepDoneRef.current) {
+            firstSweepDoneRef.current = true;
+            addLog(
+              `NEURAL SWEEP ONLINE — ${((Date.now() - sweepStart) / 1000).toFixed(1)}s PER PASS, ${rawPredictions.length} TARGETS`,
+              'init',
+            );
+          }
           processPredictionsLogs(rawPredictions);
         }
       } catch (e) {
@@ -379,6 +388,7 @@ export default function Scanner() {
   const toggleScanner = async () => {
     if (isScanning) {
       setIsScanning(false);
+      firstSweepDoneRef.current = false;
       predictionsRef.current = [];
       canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       unloadModel();
