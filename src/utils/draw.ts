@@ -106,6 +106,16 @@ export function getSciFiLabel(className: string): string {
   return cleanClass.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
+// True while any tracked box is inside its 500ms lock-on entry animation,
+// meaning the overlay needs continuous redraws to animate smoothly.
+export function hasActiveAnimations(): boolean {
+  const now = Date.now();
+  for (const item of trackedItemsMap.values()) {
+    if (now - item.firstSeen < 500) return true;
+  }
+  return false;
+}
+
 function getRoughCanvas(canvas: HTMLCanvasElement) {
   if (
     cachedCanvas !== canvas ||
