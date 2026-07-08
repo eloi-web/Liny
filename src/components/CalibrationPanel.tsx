@@ -110,7 +110,7 @@ export default function CalibrationPanel({
               <button
                 key={ms}
                 onClick={() => onScanIntervalChange(ms)}
-                className={`py-1.5 text-[9px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-white text-black border-white shadow-[0_0_8px_rgba(255,255,255,0.15)]' : 'bg-transparent text-gray-300 border-white/10 hover:border-white/30'}`}
+                className={`py-1.5 text-[9px] font-mono font-bold rounded-xl duration-150 uppercase cursor-pointer border ${scanInterval === ms ? 'bg-white text-black border-white' : 'bg-transparent text-gray-300 border-white/10 hover:border-white/30'}`}
               >
                 {ms === 100 ? '100ms (High)' : ms === 250 ? '250ms (Mid)' : '500ms (Eco)'}
               </button>
