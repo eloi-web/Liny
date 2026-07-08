@@ -15,6 +15,38 @@ const trackedItemsMap = new Map<string, TrackedItem>();
 let cachedCanvas: HTMLCanvasElement | null = null;
 let cachedRc: ReturnType<typeof rough.canvas> | null = null;
 
+interface ClassColor {
+  hex: string;
+  r: number;
+  g: number;
+  b: number;
+}
+
+// High-contrast palette that stays readable over a live camera feed.
+const CLASS_PALETTE: ClassColor[] = [
+  { hex: '#FF3B30', r: 255, g: 59, b: 48 }, // red
+  { hex: '#00E5FF', r: 0, g: 229, b: 255 }, // cyan
+  { hex: '#76FF03', r: 118, g: 255, b: 3 }, // lime
+  { hex: '#FFC400', r: 255, g: 196, b: 0 }, // amber
+  { hex: '#FF4081', r: 255, g: 64, b: 129 }, // magenta
+  { hex: '#FF9100', r: 255, g: 145, b: 0 }, // orange
+  { hex: '#40C4FF', r: 64, g: 196, b: 255 }, // sky blue
+  { hex: '#00E676', r: 0, g: 230, b: 118 }, // spring green
+  { hex: '#B388FF', r: 179, g: 136, b: 255 }, // violet
+  { hex: '#FFEA00', r: 255, g: 234, b: 0 }, // yellow
+];
+
+// Deterministic class -> color mapping so "cup" is always the same color
+// across frames and sessions.
+export function getClassColor(className: string): ClassColor {
+  const clean = className.toLowerCase().trim();
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash * 31 + clean.charCodeAt(i)) | 0;
+  }
+  return CLASS_PALETTE[Math.abs(hash) % CLASS_PALETTE.length];
+}
+
 export function getSciFiLabel(className: string): string {
   const dictionary: Record<string, string> = {
     person: 'Person',
@@ -166,47 +198,49 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
 
     const isLockingInProgress = isNewLockOn || age < 500;
 
+    const color = getClassColor(pred.class);
+
     rc.rectangle(x, y, width, height, {
-      stroke: '#FF0000',
-      strokeWidth: isLockingInProgress ? 4 : 2.5,
+      stroke: color.hex,
+      strokeWidth: isLockingInProgress ? 2.5 : 1.5,
       roughness: isLockingInProgress ? 2.5 : 3.5,
-      fill: isLockingInProgress ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 0, 0, 0.05)',
+      fill: `rgba(${color.r}, ${color.g}, ${color.b}, ${isLockingInProgress ? 0.1 : 0.05})`,
       fillStyle: 'zigzag',
-      bowing: 2,
+      bowing: 1.5,
     });
 
     const sciFiLabel = getSciFiLabel(pred.class);
     const labelText = `${sciFiLabel} [${Math.round(pred.score * 100)}%]`;
 
-    ctx.font = 'bold 12px "DM Sans", monospace';
+    ctx.font = 'bold 16px "DM Sans", monospace';
     const textWidth = ctx.measureText(labelText).width;
 
     ctx.fillStyle = '#000000';
-    ctx.fillRect(x - 2, y - 24, textWidth + 12, 20);
-    ctx.strokeStyle = '#FF0000';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(x - 2, y - 24, textWidth + 12, 20);
+    ctx.fillRect(x - 2, y - 32, textWidth + 14, 26);
+    ctx.strokeStyle = color.hex;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - 2, y - 32, textWidth + 14, 26);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(labelText, x + 4, y - 10);
+    ctx.fillText(labelText, x + 5, y - 12);
 
-    ctx.fillStyle = '#FF0000';
-    ctx.fillRect(x - 3, y - 3, 16, 3);
-    ctx.fillRect(x - 3, y - 3, 3, 16);
-    ctx.fillRect(x + width - 13, y - 3, 16, 3);
-    ctx.fillRect(x + width - 0, y - 3, 3, 16);
-    ctx.fillRect(x - 3, y + height - 0, 16, 3);
-    ctx.fillRect(x - 3, y + height - 13, 3, 16);
-    ctx.fillRect(x + width - 13, y + height - 0, 16, 3);
-    ctx.fillRect(x + width - 0, y + height - 13, 3, 16);
+    ctx.fillStyle = color.hex;
+    ctx.fillRect(x - 2, y - 2, 16, 2);
+    ctx.fillRect(x - 2, y - 2, 2, 16);
+    ctx.fillRect(x + width - 14, y - 2, 16, 2);
+    ctx.fillRect(x + width - 0, y - 2, 2, 16);
+    ctx.fillRect(x - 2, y + height - 0, 16, 2);
+    ctx.fillRect(x - 2, y + height - 14, 2, 16);
+    ctx.fillRect(x + width - 14, y + height - 0, 16, 2);
+    ctx.fillRect(x + width - 0, y + height - 14, 2, 16);
 
     if (isLockingInProgress) {
       const ageNorm = Math.min(1.0, age / 500);
       const radialOffset = ageNorm * 26;
       const opacity = 1.0 - ageNorm;
 
-      ctx.strokeStyle = `rgba(255, 0, 0, ${opacity})`;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 6]);
 
       ctx.strokeRect(
@@ -216,9 +250,9 @@ export function drawSketchyBoxes(canvas: HTMLCanvasElement, predictions: Predict
         height + radialOffset * 2,
       );
 
-      ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
-      ctx.font = 'bold 10px "DM Sans", monospace';
-      ctx.fillText('[ NEURAL SYNAPSE ENGAGED ]', x + 10, y + 20);
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      ctx.font = 'bold 12px "DM Sans", monospace';
+      ctx.fillText('[ NEURAL SYNAPSE ENGAGED ]', x + 10, y + 22);
 
       const centerX = x + width / 2;
       const centerY = y + height / 2;
