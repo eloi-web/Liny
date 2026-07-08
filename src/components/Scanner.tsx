@@ -16,11 +16,20 @@ import {
 import CalibrationPanel from './CalibrationPanel';
 import CaptureGallery, { Capture, CaptureThumbnail } from './CaptureGallery';
 import { useDetectorModel } from '../hooks/useDetectorModel';
-import { detectObjects } from '../utils/detector';
-import { drawSketchyBoxes, getSciFiLabel, Prediction } from '../utils/draw';
+import { detectObjects, retuneDetector } from '../utils/detector';
+import { drawSketchyBoxes, getSciFiLabel, hasActiveAnimations, Prediction } from '../utils/draw';
 import { speakObject } from '../utils/speech';
 
 const MAX_CAPTURES = 20;
+
+const IS_MOBILE =
+  typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// Smaller capture on phones cuts JPEG encode cost and worker preprocessing.
+const CAPTURE_MAX_DIM = IS_MOBILE ? 384 : 640;
+// Results older than this describe a frame the user has already moved away from.
+const STALE_PREDICTIONS_MS = 3000;
+// Sweeps slower than this trigger a resolution downgrade and mute voice announcements.
+const SLOW_SWEEP_MS = 2500;
 
 const MOBILE_VIDEO_CONSTRAINTS: MediaTrackConstraints = {
   facingMode: 'environment',
@@ -89,6 +98,14 @@ export default function Scanner() {
   const firstSweepDoneRef = useRef(false);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const predictionsRef = useRef<Prediction[]>([]);
+  const predictionsTimestampRef = useRef(0);
+  const predictionsVersionRef = useRef(0);
+  const lastDrawnVersionRef = useRef(-1);
+  const overlayDirtyRef = useRef(false);
+  const overlayClearedRef = useRef(true);
+  const lastPassMsRef = useRef(0);
+  const retunePendingRef = useRef(false);
+  const retuneAtFloorRef = useRef(false);
   const hudVisibleRef = useRef(true);
 
   const addLog = useCallback(
@@ -113,6 +130,7 @@ export default function Scanner() {
 
   useEffect(() => {
     hudVisibleRef.current = hudVisible;
+    overlayDirtyRef.current = true;
   }, [hudVisible]);
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
@@ -166,13 +184,15 @@ export default function Scanner() {
   }, []);
 
   const processPredictionsLogs = useCallback(
-    (predictions: Prediction[]) => {
+    (predictions: Prediction[], allowVoice: boolean) => {
       if (!isScanning) return;
 
       const now = Date.now();
       predictions.forEach((pred) => {
         const friendlyLabel = getSciFiLabel(pred.class);
-        speakObject(pred.class, voiceEnabledRef.current, `Target identified: ${friendlyLabel}`);
+        if (allowVoice) {
+          speakObject(pred.class, voiceEnabledRef.current, `Target identified: ${friendlyLabel}`);
+        }
 
         const lastLog = lastLogTime.current[pred.class] || 0;
         if (lastLog === 0) {
@@ -207,17 +227,16 @@ export default function Scanner() {
           offscreenCanvasRef.current = document.createElement('canvas');
         }
 
-        const MAX_DIM = 640;
         let targetWidth = video.videoWidth;
         let targetHeight = video.videoHeight;
 
-        if (targetWidth > MAX_DIM || targetHeight > MAX_DIM) {
+        if (targetWidth > CAPTURE_MAX_DIM || targetHeight > CAPTURE_MAX_DIM) {
           if (targetWidth > targetHeight) {
-            targetHeight = Math.round((targetHeight / targetWidth) * MAX_DIM);
-            targetWidth = MAX_DIM;
+            targetHeight = Math.round((targetHeight / targetWidth) * CAPTURE_MAX_DIM);
+            targetWidth = CAPTURE_MAX_DIM;
           } else {
-            targetWidth = Math.round((targetWidth / targetHeight) * MAX_DIM);
-            targetHeight = MAX_DIM;
+            targetWidth = Math.round((targetWidth / targetHeight) * CAPTURE_MAX_DIM);
+            targetHeight = CAPTURE_MAX_DIM;
           }
         }
 
@@ -235,7 +254,10 @@ export default function Scanner() {
             (message) => addLog(`INFERENCE FAULT: ${message}`, 'error'),
           );
           predictionsRef.current = rawPredictions;
+          predictionsTimestampRef.current = Date.now();
+          predictionsVersionRef.current++;
           const passMs = Date.now() - sweepStart;
+          lastPassMsRef.current = passMs;
           setSweepMs(passMs);
           if (!firstSweepDoneRef.current) {
             firstSweepDoneRef.current = true;
@@ -247,7 +269,21 @@ export default function Scanner() {
               addLog('SLOW DEVICE DETECTED — HOLD CAMERA STEADY BETWEEN SWEEPS', 'unidentified');
             }
           }
-          processPredictionsLogs(rawPredictions);
+
+          // Auto-downgrade model input resolution when the device cannot keep up.
+          if (passMs > SLOW_SWEEP_MS && !retuneAtFloorRef.current && !retunePendingRef.current) {
+            retunePendingRef.current = true;
+            retuneDetector((info) => {
+              retunePendingRef.current = false;
+              retuneAtFloorRef.current = info.atFloor;
+              addLog(
+                `ECO VISION MODE — INPUT RESOLUTION REDUCED TO ${info.shortestEdge}px`,
+                'unidentified',
+              );
+            });
+          }
+
+          processPredictionsLogs(rawPredictions, passMs <= SLOW_SWEEP_MS);
         }
       } catch (e) {
         if (import.meta.env.DEV) {
@@ -262,7 +298,11 @@ export default function Scanner() {
       ? Math.max(500, scanIntervalRef.current)
       : scanIntervalRef.current;
 
-    setTimeout(() => runInferenceRef.current(), effectiveScanInterval);
+    // On slow devices, give the CPU breathing room between sweeps so the
+    // camera and UI stay responsive instead of freezing back-to-back.
+    const nextDelay = Math.max(effectiveScanInterval, lastPassMsRef.current / 2);
+
+    setTimeout(() => runInferenceRef.current(), nextDelay);
   }, [adaptiveThrottleActive, processPredictionsLogs, modelReadyRef, addLog]);
 
   const detectFrame = useCallback(() => {
@@ -284,6 +324,7 @@ export default function Scanner() {
       if (canvas.width !== video.clientWidth || canvas.height !== video.clientHeight) {
         canvas.width = video.clientWidth;
         canvas.height = video.clientHeight;
+        overlayDirtyRef.current = true;
       }
     }
 
@@ -312,23 +353,44 @@ export default function Scanner() {
 
     const offscreen = offscreenCanvasRef.current;
     if (canvas.width > 0 && canvas.height > 0 && offscreen && offscreen.width > 0) {
-      const scaleX = canvas.width / offscreen.width;
-      const scaleY = canvas.height / offscreen.height;
+      const predictionsAge = Date.now() - predictionsTimestampRef.current;
+      const isStale = predictionsTimestampRef.current === 0 || predictionsAge > STALE_PREDICTIONS_MS;
 
-      const scaled = predictionsRef.current.map((pred) => ({
-        ...pred,
-        bbox: [
-          pred.bbox[0] * scaleX,
-          pred.bbox[1] * scaleY,
-          pred.bbox[2] * scaleX,
-          pred.bbox[3] * scaleY,
-        ] as [number, number, number, number],
-      }));
-
-      if (hudVisibleRef.current) {
-        drawSketchyBoxes(canvas, scaled);
+      if (!hudVisibleRef.current || isStale) {
+        // Clear outdated boxes once instead of drawing what the camera saw seconds ago.
+        if (!overlayClearedRef.current) {
+          canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+          overlayClearedRef.current = true;
+          lastDrawnVersionRef.current = predictionsVersionRef.current;
+          overlayDirtyRef.current = false;
+        }
       } else {
-        canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+        // Rough.js path generation is expensive; redraw only when something changed
+        // or a lock-on entry animation is in progress, not on every rAF tick.
+        const needsRedraw =
+          overlayDirtyRef.current ||
+          lastDrawnVersionRef.current !== predictionsVersionRef.current ||
+          hasActiveAnimations();
+
+        if (needsRedraw) {
+          const scaleX = canvas.width / offscreen.width;
+          const scaleY = canvas.height / offscreen.height;
+
+          const scaled = predictionsRef.current.map((pred) => ({
+            ...pred,
+            bbox: [
+              pred.bbox[0] * scaleX,
+              pred.bbox[1] * scaleY,
+              pred.bbox[2] * scaleX,
+              pred.bbox[3] * scaleY,
+            ] as [number, number, number, number],
+          }));
+
+          drawSketchyBoxes(canvas, scaled);
+          overlayClearedRef.current = false;
+          overlayDirtyRef.current = false;
+          lastDrawnVersionRef.current = predictionsVersionRef.current;
+        }
       }
     }
 
@@ -397,6 +459,13 @@ export default function Scanner() {
       firstSweepDoneRef.current = false;
       setSweepMs(null);
       predictionsRef.current = [];
+      predictionsTimestampRef.current = 0;
+      predictionsVersionRef.current = 0;
+      lastDrawnVersionRef.current = -1;
+      overlayClearedRef.current = true;
+      lastPassMsRef.current = 0;
+      retunePendingRef.current = false;
+      retuneAtFloorRef.current = false;
       canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       unloadModel();
       addLog('SCANNER ENGAGED OFFLINE', 'init');
