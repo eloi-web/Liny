@@ -23,14 +23,24 @@ async function hasWebGPU(): Promise<boolean> {
 
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-// Shrinking the model input resolution speeds up inference roughly quadratically;
-// the pipeline rescales boxes back to the original image size automatically.
+// Leave cores free for the camera decoder and UI thread; saturating every core
+// with WASM inference is what causes the main thread to freeze on phones.
+if (IS_MOBILE && env.backends?.onnx?.wasm) {
+  const cores = navigator.hardwareConcurrency ?? 4;
+  env.backends.onnx.wasm.numThreads = Math.max(1, Math.min(2, cores - 2));
+}
+
+// Progressive input sizes: shrinking the model input speeds up inference roughly
+// quadratically; the pipeline rescales boxes back to the original size automatically.
+const INPUT_SIZE_STEPS = [320, 224, 192] as const;
+let inputSizeStep = 0;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tuneInputSize(p: any, shortestEdge: number, longestEdge: number) {
+function applyInputSize(p: any, shortestEdge: number) {
   try {
     const fe = p.processor?.feature_extractor ?? p.processor?.image_processor;
     if (fe?.size) {
-      fe.size = { shortest_edge: shortestEdge, longest_edge: longestEdge };
+      fe.size = { shortest_edge: shortestEdge, longest_edge: shortestEdge * 2 };
     }
   } catch {
     // Best-effort tuning only.
@@ -47,7 +57,8 @@ async function loadPipeline(progress_callback: ProgressCallback) {
       });
       activeDevice = 'webgpu';
       if (IS_MOBILE) {
-        tuneInputSize(p, 320, 640);
+        inputSizeStep = 0;
+        applyInputSize(p, INPUT_SIZE_STEPS[inputSizeStep]);
       }
       return p;
     } catch {
@@ -63,11 +74,8 @@ async function loadPipeline(progress_callback: ProgressCallback) {
   activeDevice = 'wasm';
 
   // Phone CPUs need the smallest input that still detects reliably.
-  if (IS_MOBILE) {
-    tuneInputSize(p, 224, 448);
-  } else {
-    tuneInputSize(p, 320, 640);
-  }
+  inputSizeStep = IS_MOBILE ? 1 : 0;
+  applyInputSize(p, INPUT_SIZE_STEPS[inputSizeStep]);
 
   return p;
 }
@@ -156,5 +164,17 @@ self.onmessage = async (event) => {
       const message = error instanceof Error ? error.message : String(error);
       self.postMessage({ type: 'DETECT_ERROR', payload: message });
     }
+  } else if (type === 'RETUNE') {
+    if (detectorPipeline && inputSizeStep < INPUT_SIZE_STEPS.length - 1) {
+      inputSizeStep++;
+      applyInputSize(detectorPipeline, INPUT_SIZE_STEPS[inputSizeStep]);
+    }
+    self.postMessage({
+      type: 'RETUNED',
+      payload: {
+        shortestEdge: INPUT_SIZE_STEPS[inputSizeStep],
+        atFloor: inputSizeStep >= INPUT_SIZE_STEPS.length - 1,
+      },
+    });
   }
 };
