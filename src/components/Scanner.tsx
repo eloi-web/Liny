@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Webcam from 'react-webcam';
 import {
-  CameraOff,
   Eye,
   EyeOff,
   List,
@@ -553,34 +552,28 @@ export default function Scanner() {
   return (
     <div className="w-full h-full relative">
       <div
-        className="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center bg-oil-black transition-all duration-300"
+        className="absolute inset-0 z-0 flex flex-col justify-end bg-oil-black transition-all duration-300 bg-no-repeat bg-center bg-cover md:bg-contain md:bg-right"
         style={{
           backgroundImage: !isScanning
-            ? 'linear-gradient(rgba(12, 12, 12, 0.35), rgba(12, 12, 12, 0.45)), url("/patterns_1.jpg")'
+            ? 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.15) 75%, rgba(0,0,0,0.35) 100%), url("/home-bg.png")'
             : 'none',
-          backgroundRepeat: 'repeat',
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
         }}
       >
         {!isScanning && !isLoading && (
-          <div className="max-w-md p-8 border border-white/10 glass-panel rounded-2xl flex flex-col items-center shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-5 text-off-white animate-pulse border border-white/5">
-              <CameraOff className="w-7 h-7 opacity-70 text-neon-green" />
-            </div>
-            <h2 className="font-mono text-lg font-bold tracking-widest text-off-white mb-2 uppercase">
-              LENS TERMINAL
-            </h2>
-            <p className="text-xs text-gray-400 font-sans mb-6 max-w-sm leading-relaxed">
-              Press "START SCANNER" to trigger local webcam diagnostics. Your video remains 100%
-              private and processed on device.
+          <div className="w-full max-w-2xl px-6 md:px-12 pb-14 md:pb-20 flex flex-col items-start text-left">
+            <h1 className="font-boxlines text-6xl md:text-8xl text-off-white leading-none mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+              LINY
+            </h1>
+            <p className="text-sm md:text-base text-gray-300 font-sans mb-8 max-w-md leading-relaxed">
+              Real-time object detection through your camera. Your video remains 100% private and
+              processed on device.
             </p>
             <button
               onClick={toggleScanner}
-              className="px-6 py-3 bg-white text-black font-semibold font-mono text-xs rounded-xl hover:bg-white/90 transition-all border border-white shadow-[0_0_20px_rgba(255,255,255,0.15)] flex items-center justify-center gap-2 tracking-widest duration-150 cursor-pointer uppercase"
+              className="w-full sm:w-[450px] h-[45px] px-10 py-5 bg-white text-black font-semibold font-mono text-sm rounded-full hover:bg-white/90 transition-all border border-white flex items-center justify-center gap-2 tracking-wide duration-150 cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              START SCANNER
+              Start scanner
             </button>
           </div>
         )}
