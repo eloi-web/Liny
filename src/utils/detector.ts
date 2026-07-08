@@ -10,6 +10,7 @@ let resolveDetect: ((value: Prediction[]) => void) | null = null;
 let rejectDetect: ((reason: Error) => void) | null = null;
 let onProgressCallback: ((progress: ProgressPayload) => void) | null = null;
 let onDetectErrorCallback: ((message: string) => void) | null = null;
+let onRetunedCallback: ((info: { shortestEdge: number; atFloor: boolean }) => void) | null = null;
 
 function ensureWorker() {
   if (worker) return;
@@ -45,6 +46,9 @@ function ensureWorker() {
       resolveDetect?.([]);
       resolveDetect = null;
       rejectDetect = null;
+    } else if (type === 'RETUNED') {
+      onRetunedCallback?.(payload);
+      onRetunedCallback = null;
     }
   };
 }
@@ -99,6 +103,14 @@ export async function detectObjects(
   });
 }
 
+export function retuneDetector(
+  onRetuned?: (info: { shortestEdge: number; atFloor: boolean }) => void,
+) {
+  if (!worker) return;
+  onRetunedCallback = onRetuned ?? null;
+  worker.postMessage({ type: 'RETUNE' });
+}
+
 export function terminateDetectorWorker() {
   if (worker) {
     worker.terminate();
@@ -110,4 +122,5 @@ export function terminateDetectorWorker() {
   rejectDetect = null;
   onProgressCallback = null;
   onDetectErrorCallback = null;
+  onRetunedCallback = null;
 }
