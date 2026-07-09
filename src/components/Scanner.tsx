@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Webcam from 'react-webcam';
 import {
+  Camera,
   Eye,
   EyeOff,
   List,
   Loader2,
-  Play,
   RefreshCw,
   Settings,
   ShieldAlert,
   Square,
   ZoomIn,
 } from 'lucide-react';
+import AsciiWind from './AsciiWind';
 import CalibrationPanel from './CalibrationPanel';
 import CaptureGallery, { Capture, CaptureThumbnail } from './CaptureGallery';
 import { useDetectorModel } from '../hooks/useDetectorModel';
@@ -560,22 +561,27 @@ export default function Scanner() {
         }}
       >
         {!isScanning && !isLoading && (
-          <div className="w-full max-w-2xl px-6 md:px-12 pb-[max(2rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] md:pb-20 flex flex-col items-start text-left">
-            <h1 className="font-boxlines text-6xl md:text-8xl text-off-white leading-none mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-              LINY
-            </h1>
-            <p className="text-sm md:text-base text-gray-300 font-sans mb-8 max-w-md leading-relaxed">
-              Real-time object detection through your camera. Your video remains 100% private and
-              processed on device.
-            </p>
-            <button
-              onClick={toggleScanner}
-              className="w-full sm:w-[450px] h-12 px-10 bg-white text-black font-semibold font-mono text-sm rounded-full hover:bg-white/90 transition-all border border-white flex items-center justify-center gap-2 tracking-wide duration-150 cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              Start scanner
-            </button>
-          </div>
+          <>
+            <div className="hidden md:block absolute inset-y-0 left-0 w-[68%] z-0 pointer-events-none">
+              <AsciiWind />
+            </div>
+            <div className="relative z-10 w-full max-w-2xl px-6 md:px-12 pb-[max(2rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] md:pb-20 flex flex-col items-start text-left">
+              <h1 className="font-boxlines text-6xl md:text-8xl text-off-white leading-none mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                LINY
+              </h1>
+              <p className="text-sm md:text-base text-gray-300 font-sans mb-8 max-w-md leading-relaxed">
+                Real-time object detection through your camera. Your video remains 100% private and
+                processed on device.
+              </p>
+              <button
+                onClick={toggleScanner}
+                className="start-scanner-btn w-full sm:w-[450px] h-12 px-10 bg-white text-black font-semibold font-mono text-sm rounded-full hover:bg-white/90 border border-white flex items-center justify-center gap-2 tracking-wide cursor-pointer"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                Start scanner
+              </button>
+            </div>
+          </>
         )}
       </div>
 
