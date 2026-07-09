@@ -560,7 +560,7 @@ export default function Scanner() {
         }}
       >
         {!isScanning && !isLoading && (
-          <div className="w-full max-w-2xl px-6 md:px-12 pb-14 md:pb-20 flex flex-col items-start text-left">
+          <div className="w-full max-w-2xl px-6 md:px-12 pb-[max(2rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))] md:pb-20 flex flex-col items-start text-left">
             <h1 className="font-boxlines text-6xl md:text-8xl text-off-white leading-none mb-4 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
               LINY
             </h1>
@@ -570,7 +570,7 @@ export default function Scanner() {
             </p>
             <button
               onClick={toggleScanner}
-              className="w-full sm:w-[450px] h-[45px] px-10 py-5 bg-white text-black font-semibold font-mono text-sm rounded-full hover:bg-white/90 transition-all border border-white flex items-center justify-center gap-2 tracking-wide duration-150 cursor-pointer"
+              className="w-full sm:w-[450px] h-12 px-10 bg-white text-black font-semibold font-mono text-sm rounded-full hover:bg-white/90 transition-all border border-white flex items-center justify-center gap-2 tracking-wide duration-150 cursor-pointer"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               Start scanner
