@@ -122,3 +122,23 @@ body.calibration-open header {
 header {
   transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
 }
+
+@keyframes start-scanner-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-7px) scale(1.03);
+  }
+  55% {
+    transform: translateY(-2px) scale(1.01);
+  }
+  75% {
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+.start-scanner-btn:hover {
+  animation: start-scanner-bounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
