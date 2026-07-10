@@ -1,57 +1,52 @@
 # Liny
 
-A real-time object detection progressive web app designed with a clean, high-performance "Cyber-Detective" interface. Point your camera at anything, and watch it get recognized and precisely tracked in real-time.
+A real-time object detection progressive web app with a cyber-detective HUD. Point your camera at anything and watch it get recognized and tracked on-device.
 
 ## Features
 
-- **Real-Time Detection:** Uses Transformers.js for DETR ResNet-50 object detection directly within the browser.
-- **Sketchy Object Tracking:** Draws stylistic bounding boxes using Rough.js to frame detected objects.
-- **Mobile Optimized Inference:** Employs an intelligent offscreen downsampling mechanism and a Web Worker architecture to prevent the UI thread from blocking, ensuring lag-free high-FPS UI on any device.
-- **Toggleable HUD:** Allows users to hide all overlays and outlines for an immersive, distraction-free view of the camera feed.
-- **Voice Announcements:** Optional Web Speech API integration that speaks out recognized objects (e.g., "Detected a chair") as they enter the frame.
-- **Capture Gallery & History:** Take diagnostic snapshots that save directly into an in-app slide-up gallery drawer, complete with timestamps and detected object tags.
-- **Haptic Feedback:** Subtle tactile vibrations utilizing the browser's Haptic API for interactive UI feedback, shutter capture, and new object discovery pulses.
-- **Futuristic UI:** A dark, moody HUD with custom thresholds, rounded interactive elements, and minimal neon accents.
-- **100% Client-Side:** All machine learning and box rendering happens entirely on-device, ensuring maximum privacy without server round-trips.
+- **Real-Time Detection:** Uses Transformers.js with the **YOLOS Tiny** model for client-side object detection.
+- **Sketchy Object Tracking:** Draws stylistic, per-class colored bounding boxes with Rough.js.
+- **Mobile Optimized Inference:** Web Worker + offscreen downsampling, WASM thread caps, adaptive input retuning, and stale-result cleanup so the camera UI stays usable on phones.
+- **Toggleable HUD:** Hide overlays for a distraction-free camera view.
+- **Voice Announcements:** Optional Web Speech API that announces recognized objects.
+- **Capture Gallery:** Snapshots with timestamps and detected object tags.
+- **Haptic Feedback:** Light vibration on interactive UI actions where supported.
+- **Persisted Settings:** Scan interval, threshold, voice, camera facing, zoom, and HUD prefs survive reloads.
+- **100% Client-Side:** ML and rendering run on-device — no video leaves the browser.
 
 ## Tech Stack
 
-- **React 19 & TypeScript:** Scalable, typed component architecture.
-- **Vite:** High-performance frontend tooling.
-- **Tailwind CSS:** For layout styling, glassmorphism UI, and dark aesthetic.
-- **Transformers.js (`@huggingface/transformers`):** Client-side neural object detection with the YOLOS Tiny model (mobile-friendly).
-- **Rough.js:** For the sketchy, hand-drawn vector graphics on the Canvas.
-- **React Webcam:** Flexible webcam handling for different devices.
+- **React 19 & TypeScript**
+- **Vite 6**
+- **Tailwind CSS v4**
+- **Transformers.js (`@huggingface/transformers`)** — YOLOS Tiny (`Xenova/yolos-tiny`)
+- **Rough.js** — sketchy canvas overlays
+- **React Webcam** — camera capture
 
-## Development 
+## Development
 
-To run this project locally:
+```bash
+npm install
+npm run dev
+```
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+To test on a phone over your local network, the page must be served over **HTTPS** (iOS Safari blocks the camera on plain HTTP):
 
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev:lan
+```
 
-   To test on a phone over your local network, the page must be served over **HTTPS** (iOS Safari blocks the camera on plain HTTP):
-   ```bash
-   npm run dev:lan
-   ```
-   Then open the URL shown in the terminal from your phone. For reliable mobile camera access, deploy to a host with HTTPS or use a tunnel (e.g. ngrok, Cloudflare Tunnel).
+Then open the URL shown in the terminal from your phone. For reliable mobile camera access, deploy to a host with HTTPS (e.g. Vercel) or use a tunnel (ngrok, Cloudflare Tunnel).
 
 ## Production Build
 
-To build the project for production, which compiles to static assets inside the `dist/` folder:
-
 ```bash
 npm run build
-```
-
-You can preview the built static output with:
-```bash
 npm run preview
 ```
+
+### Deploy notes (Vercel)
+
+[`vercel.json`](vercel.json) sets `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` so browsers can enable multi-threaded WASM inference (`crossOriginIsolated`). Redeploy after pulling those headers for the live site to pick them up.
+
+**First visit:** the model downloads from Hugging Face and may take a while on slow networks; later visits use the browser cache.
