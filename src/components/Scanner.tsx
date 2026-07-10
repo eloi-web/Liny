@@ -13,6 +13,7 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import AsciiWind from './AsciiWind';
+import BetaNotice from './BetaNotice';
 import CalibrationPanel from './CalibrationPanel';
 import CaptureGallery, { Capture, CaptureThumbnail } from './CaptureGallery';
 import { useDetectorModel } from '../hooks/useDetectorModel';
@@ -577,6 +578,7 @@ export default function Scanner() {
       >
         {!isScanning && !isLoading && (
           <>
+            <BetaNotice />
             <div className="hidden md:block absolute inset-y-0 left-0 w-[68%] z-0 pointer-events-none">
               <AsciiWind />
             </div>
