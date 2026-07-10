@@ -19,6 +19,7 @@ import { useDetectorModel } from '../hooks/useDetectorModel';
 import { detectObjects, retuneDetector } from '../utils/detector';
 import { drawSketchyBoxes, getSciFiLabel, hasActiveAnimations, Prediction } from '../utils/draw';
 import { speakObject } from '../utils/speech';
+import { getInitialSettings, saveSettings } from '../utils/settingsStorage';
 
 const MAX_CAPTURES = 20;
 
@@ -61,10 +62,10 @@ export default function Scanner() {
 
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [scanInterval, setScanInterval] = useState(250);
-  const [threshold, setThreshold] = useState(30);
+  const [scanInterval, setScanInterval] = useState(() => getInitialSettings().scanInterval);
+  const [threshold, setThreshold] = useState(() => getInitialSettings().threshold);
   const [isScanning, setIsScanning] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => getInitialSettings().voiceEnabled);
   const [logs, setLogs] = useState<LogEntry[]>([
     {
       id: 0,
@@ -74,19 +75,21 @@ export default function Scanner() {
     },
   ]);
   const [permissionError, setPermissionError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>(
+    () => getInitialSettings().facingMode,
+  );
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
-  const [zoom, setZoom] = useState(1.0);
-  const [showLogs, setShowLogs] = useState(true);
+  const [zoom, setZoom] = useState(() => getInitialSettings().zoom);
+  const [showLogs, setShowLogs] = useState(() => getInitialSettings().showLogs);
   const [showControls, setShowControls] = useState(false);
-  const [hudVisible, setHudVisible] = useState(true);
+  const [hudVisible, setHudVisible] = useState(() => getInitialSettings().hudVisible);
   const [currentFps, setCurrentFps] = useState(60);
   const [adaptiveThrottleActive, setAdaptiveThrottleActive] = useState(false);
   const [sweepMs, setSweepMs] = useState<number | null>(null);
 
-  const thresholdRef = useRef(30);
-  const voiceEnabledRef = useRef(false);
-  const scanIntervalRef = useRef(250);
+  const thresholdRef = useRef(threshold);
+  const voiceEnabledRef = useRef(voiceEnabled);
+  const scanIntervalRef = useRef(scanInterval);
   const loopActive = useRef(false);
   const requestRef = useRef<number | null>(null);
   const lastLogTime = useRef<Record<string, number>>({});
@@ -141,6 +144,18 @@ export default function Scanner() {
   useEffect(() => {
     thresholdRef.current = threshold;
   }, [threshold]);
+
+  useEffect(() => {
+    saveSettings({
+      scanInterval,
+      threshold,
+      voiceEnabled,
+      facingMode,
+      zoom,
+      showLogs,
+      hudVisible,
+    });
+  }, [scanInterval, threshold, voiceEnabled, facingMode, zoom, showLogs, hudVisible]);
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
